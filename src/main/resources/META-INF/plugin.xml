@@ -5,6 +5,8 @@
     <vendor>srwi</vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <!--suppress PluginXmlValidity -->
+    <depends>com.intellij.modules.python</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
