@@ -10,9 +10,7 @@ class ViewImageAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
         val frameAccessor = value.frameAccessor
-        val result3 = executeStatement(frameAccessor, "import time\ntime.sleep(1)\nbla = 1")
-        val result1 = evaluateExpression(frameAccessor, "bla+3")
-        var foo = 0
+        val base64Array = getNumpyArray(frameAccessor, value.name)
     }
 
     private fun evaluateExpression(frameAccessor: PyFrameAccessor, expression: String) : PyDebugValue? {
@@ -29,5 +27,20 @@ class ViewImageAction : AnAction() {
         } catch (_: PyDebuggerException) {
             null
         }
+    }
+
+    private fun getNumpyArray(frameAccessor: PyFrameAccessor, name: String) : String? {
+        // TODO: Get rid of cv2 requirement
+        val command = """
+            import cv2
+            import base64
+            success, buffer = cv2.imencode('.png', image)
+            encoded = base64.b64encode(buffer).decode('utf-8')
+        """.trimIndent()
+
+        // TODO: Clean up Python environment; We don't want to cause any side effects in the debug session
+
+        executeStatement(frameAccessor, command) ?: return null
+        return evaluateExpression(frameAccessor, "encoded")?.value
     }
 }
