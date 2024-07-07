@@ -17,4 +17,10 @@
     <applicationListeners>
         <listener class="com.github.srwi.pycharmpixelglance.listeners.MyApplicationActivationListener" topic="com.intellij.openapi.application.ApplicationActivationListener"/>
     </applicationListeners>
+
+    <actions>
+        <action id="ViewImageAction" class="ViewImageAction" text="View as Image">
+            <add-to-group group-id="XDebugger.ValueGroup" anchor="last"/>
+        </action>
+    </actions>
 </idea-plugin>
