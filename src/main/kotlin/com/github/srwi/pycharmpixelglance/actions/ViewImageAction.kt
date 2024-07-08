@@ -8,9 +8,15 @@ import com.jetbrains.python.debugger.PyFrameAccessor
 
 class ViewImageAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
         val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
         val frameAccessor = value.frameAccessor
+
         val base64Array = getNumpyArray(frameAccessor, value.name)
+        if (base64Array != null) {
+            val diag = ImageViewDialog(project, base64Array)
+            diag.show()
+        }
     }
 
     private fun evaluateExpression(frameAccessor: PyFrameAccessor, expression: String) : PyDebugValue? {
