@@ -10,16 +10,8 @@
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
-    <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.srwi.pycharmpixelglance.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-    </extensions>
-
-    <applicationListeners>
-        <listener class="com.github.srwi.pycharmpixelglance.listeners.MyApplicationActivationListener" topic="com.intellij.openapi.application.ApplicationActivationListener"/>
-    </applicationListeners>
-
     <actions>
-        <action id="ViewImageAction" class="ViewImageAction" text="View as Image">
+        <action id="ViewImageAction" class="com.github.srwi.pycharmpixelglance.actions.ViewImageAction" text="View as Image">
             <add-to-group group-id="XDebugger.ValueGroup" anchor="last"/>
         </action>
     </actions>

@@ -1,3 +1,6 @@
+package com.github.srwi.pycharmpixelglance.actions
+
+import com.github.srwi.pycharmpixelglance.dialogs.ImageViewDialog
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.xdebugger.impl.ui.tree.actions.XDebuggerTreeActionBase
@@ -37,16 +40,27 @@ class ViewImageAction : AnAction() {
 
     private fun getNumpyArray(frameAccessor: PyFrameAccessor, name: String) : String? {
         // TODO: Get rid of cv2 requirement
-        val command = """
-            import cv2
-            import base64
-            success, buffer = cv2.imencode('.png', image)
-            encoded = base64.b64encode(buffer).decode('utf-8')
-        """.trimIndent()
-
-        // TODO: Clean up Python environment; We don't want to cause any side effects in the debug session
-
+        val command = ("""
+            import cv2 as pixelglance_cv2
+            import base64 as pixelglance_base64
+            pixelglance_success, pixelglance_buffer = pixelglance_cv2.imencode('.png', """ + name + """)
+            pixelglance_encoded = pixelglance_base64.b64encode(pixelglance_buffer).decode('utf-8')
+        """).trimIndent()
         executeStatement(frameAccessor, command) ?: return null
-        return evaluateExpression(frameAccessor, "encoded")?.value
+
+        val success = evaluateExpression(frameAccessor, "pixelglance_success")?.value.toBoolean()
+        if (!success) {
+            return null
+        }
+
+        val encoded = evaluateExpression(frameAccessor, "pixelglance_encoded")?.value
+
+        val cleanupCommand = ("""
+            del pixelglance_cv2, pixelglance_base64
+            del pixelglance_success, pixelglance_buffer, pixelglance_encoded
+        """).trimIndent()
+        executeStatement(frameAccessor, cleanupCommand) ?: return null
+
+        return encoded
     }
 }

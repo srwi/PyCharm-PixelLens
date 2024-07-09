@@ -1,3 +1,5 @@
+package com.github.srwi.pycharmpixelglance.dialogs
+
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -196,8 +198,8 @@ class ImageViewDialog(
     }
 
     private class TransferableImage(private val image: BufferedImage) : Transferable {
-        override fun getTransferData(flavor: DataFlavor?): Any? {
-            return if (flavor == DataFlavor.imageFlavor) image else null
+        override fun getTransferData(flavor: DataFlavor?): Any {
+            return image
         }
 
         override fun isDataFlavorSupported(flavor: DataFlavor?): Boolean {
