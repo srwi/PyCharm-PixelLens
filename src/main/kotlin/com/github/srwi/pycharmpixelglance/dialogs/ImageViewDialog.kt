@@ -4,6 +4,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.actionSystem.Separator
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
@@ -61,7 +62,7 @@ class ImageViewDialog(
         panel.add(footerLabel, BorderLayout.SOUTH)
 
         imageLabel.addMouseMotionListener(object : MouseMotionListener {
-            override fun mouseDragged(e: MouseEvent?) {
+            override fun mouseDragged(e: MouseEvent) {
                 updateFooter(e)
             }
 
@@ -69,8 +70,8 @@ class ImageViewDialog(
                 updateFooter(e)
             }
 
-            private fun updateFooter(e: MouseEvent?) {
-                e?.let {
+            private fun updateFooter(e: MouseEvent) {
+                e.let {
                     val mouseX = e.x
                     val mouseY = e.y
 
@@ -78,11 +79,11 @@ class ImageViewDialog(
                     val iconWidth = icon.iconWidth
                     val iconHeight = icon.iconHeight
 
-                    val viewport = scrollPane.viewport
-                    val viewPosition = viewport.viewPosition
+                    val aViewport = scrollPane.viewport
+                    val viewPosition = aViewport.viewPosition
 
-                    val xOffset = max((viewport.width - iconWidth) / 2 - viewPosition.x, 0)
-                    val yOffset = max((viewport.height - iconHeight) / 2 - viewPosition.y, 0)
+                    val xOffset = max((aViewport.width - iconWidth) / 2 - viewPosition.x, 0)
+                    val yOffset = max((aViewport.height - iconHeight) / 2 - viewPosition.y, 0)
 
                     val imgX = ((mouseX - xOffset) / currentZoom).toInt()
                     val imgY = ((mouseY - yOffset) / currentZoom).toInt()
@@ -105,8 +106,9 @@ class ImageViewDialog(
 
     private fun createToolbar(): JComponent {
         val actionGroup = DefaultActionGroup().apply {
-            add(CopyAction())
             add(SaveAction())
+            add(CopyAction())
+            add(Separator())
             add(ZoomInAction())
             add(ZoomOutAction())
             add(FitToWindowAction())

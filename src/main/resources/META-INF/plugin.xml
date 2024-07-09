@@ -12,7 +12,7 @@
 
     <actions>
         <action id="ViewImageAction" class="com.github.srwi.pycharmpixelglance.actions.ViewImageAction" text="View as Image">
-            <add-to-group group-id="XDebugger.ValueGroup" anchor="last"/>
+            <add-to-group group-id="XDebugger.ValueGroup" anchor="before" relative-to-action="PyDebugger.ViewArray"/>
         </action>
     </actions>
 </idea-plugin>
