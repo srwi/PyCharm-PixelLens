@@ -1,12 +1,10 @@
 package com.github.srwi.pycharmpixelglance
 
 import com.intellij.ide.highlighter.XmlFileType
-import com.intellij.openapi.components.service
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.TestDataPath
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.PsiErrorElementUtil
-import com.github.srwi.pycharmpixelglance.services.MyProjectService
 
 @TestDataPath("\$CONTENT_ROOT/src/test/testData")
 class MyPluginTest : BasePlatformTestCase() {
@@ -27,12 +25,6 @@ class MyPluginTest : BasePlatformTestCase() {
 
     fun testRename() {
         myFixture.testRename("foo.xml", "foo_after.xml", "a2")
-    }
-
-    fun testProjectService() {
-        val projectService = project.service<MyProjectService>()
-
-        assertNotSame(projectService.getRandomNumber(), projectService.getRandomNumber())
     }
 
     override fun getTestDataPath() = "src/test/testData/rename"
