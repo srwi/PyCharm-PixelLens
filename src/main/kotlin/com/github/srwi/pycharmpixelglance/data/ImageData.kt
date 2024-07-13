@@ -1,45 +1,76 @@
 package com.github.srwi.pycharmpixelglance.data
 
+import org.jetbrains.kotlinx.multik.ndarray.data.D3
 import org.jetbrains.kotlinx.multik.ndarray.data.DN
 import org.jetbrains.kotlinx.multik.ndarray.data.NDArray
+import org.jetbrains.kotlinx.multik.ndarray.data.get
+import org.jetbrains.kotlinx.multik.ndarray.operations.clip
 import org.jetbrains.kotlinx.multik.ndarray.operations.div
 import org.jetbrains.kotlinx.multik.ndarray.operations.plus
+import org.jetbrains.kotlinx.multik.ndarray.operations.times
+import java.awt.image.BufferedImage
 
 class CustomImage(
     originalData: NDArray<Any, DN>,
     originalDataType: String
 ) {
-    private var image: NDArray<Float, DN>
+    private var image: NDArray<Float, D3>
 
     init {
-        image = preprocessArray(originalData, originalDataType)
+        val reshapedData = reshapeDataToD3(originalData)
+        image = preprocessData(reshapedData, originalDataType)
     }
 
-    private fun preprocessArray(array: NDArray<Any, DN>, dataType: String): NDArray<Float, DN> {
+    private fun reshapeDataToD3(array: NDArray<Any, DN>) : NDArray<Any, D3> {
+        if (array.shape.size == 3) {
+            return array as NDArray<Any, D3>
+        }
+
+        throw Exception("Currently only RGB images are supported.")
+    }
+
+    private fun preprocessData(array: NDArray<Any, D3>, dataType: String): NDArray<Float, D3> {
         val preprocessed = when (dataType) {
             "int8" -> {
-                val floatArray = array.asType<Float>()
-                (floatArray + 128f) / 255f
+                array.asType<Float>() + 128f
             }
             "uint8" -> {
-                val floatArray = array.asType<Float>()
-                floatArray / 255f
+                array.asType<Float>()
             }
             "uint16", "uint32", "uint64" -> {
-                val doubleArray = array.asType<Double>()
-                doubleArray / 256.0 / 255.0
+                array.asType<Double>() / 256.0
             }
             "int16", "int32", "int64" -> {
-                val doubleArray = array.asType<Double>()
-                ((doubleArray / 256.0) + 128.0) / 255.0
+                (array.asType<Double>() / 256.0) + 128.0
+            }
+            "float16", "float32", "float64" -> {
+                array.asType<Double>() * 255.0
             }
             "bool" -> {
-                array.asType<Float>()
+                array.asType<Float>() * 255f
             }
             else -> throw IllegalArgumentException("Unsupported data type: $dataType")
         }
 
-        return preprocessed.asType<Float>()
+        return preprocessed.asType<Float>().clip(0f, 255f)
+    }
+
+    fun getBuffer() : BufferedImage {
+        val height = image.shape[0]
+        val width = image.shape[1]
+
+        val bufferedImage = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)  // TODO: HiDPI
+
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val r = (image[y, x, 0]).toInt().coerceIn(0, 255)
+                val g = (image[y, x, 1]).toInt().coerceIn(0, 255)
+                val b = (image[y, x, 2]).toInt().coerceIn(0, 255)
+                val rgb = (r shl 16) or (g shl 8) or b
+                bufferedImage.setRGB(x, y, rgb)
+            }
+        }
+        return bufferedImage
     }
 
 //    fun getShape(): IntArray = shape

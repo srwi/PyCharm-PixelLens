@@ -1,6 +1,7 @@
 package com.github.srwi.pycharmpixelglance.actions
 
 import com.github.srwi.pycharmpixelglance.data.NumpyImageProvider
+import com.github.srwi.pycharmpixelglance.dialogs.ImageViewDialog
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.xdebugger.impl.ui.tree.actions.XDebuggerTreeActionBase
@@ -20,6 +21,6 @@ class ViewImageAction : AnAction() {
             else -> throw IllegalArgumentException("Unsupported type qualifier: ${value.typeQualifier}")
         }
 
-        val pause = 0
+        ImageViewDialog(project, image, value.name).show()
     }
 }

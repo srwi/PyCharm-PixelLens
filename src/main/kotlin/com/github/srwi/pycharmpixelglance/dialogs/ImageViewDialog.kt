@@ -1,5 +1,6 @@
 package com.github.srwi.pycharmpixelglance.dialogs
 
+import com.github.srwi.pycharmpixelglance.data.CustomImage
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -19,29 +20,30 @@ import java.awt.datatransfer.Transferable
 import java.awt.event.MouseEvent
 import java.awt.event.MouseMotionListener
 import java.awt.image.BufferedImage
-import java.io.ByteArrayInputStream
-import java.util.*
 import javax.imageio.ImageIO
 import javax.swing.*
+import javax.swing.filechooser.FileNameExtensionFilter
 import kotlin.math.max
 import kotlin.math.min
 
 class ImageViewDialog(
     project: Project?,
-    base64ImageString: String,
-    title: String = "Image Viewer"
+    image: CustomImage,
+    title: String
 ) : DialogWrapper(project) {
 
     private val imageLabel: JLabel
-    private val originalImage: BufferedImage
-    private var currentZoom: Double = 1.0
+    private val image: CustomImage
+    private val displayedImage: BufferedImage
     private val scrollPane: JBScrollPane
     private val footerLabel: JLabel
+    private var currentZoom: Double = 1.0
 
     init {
         this.title = title
-        originalImage = base64ToImage(base64ImageString)
-        imageLabel = JLabel(ImageIcon(originalImage))
+        this.image = image
+        displayedImage = image.getBuffer()
+        imageLabel = JLabel(ImageIcon(displayedImage))
         scrollPane = JBScrollPane(imageLabel)
         footerLabel = JLabel(" ")
         init()
@@ -88,8 +90,8 @@ class ImageViewDialog(
                     val imgX = ((mouseX - xOffset) / currentZoom).toInt()
                     val imgY = ((mouseY - yOffset) / currentZoom).toInt()
 
-                    if (imgX in 0 until originalImage.width && imgY in 0 until originalImage.height) {
-                        val pixel = originalImage.getRGB(imgX, imgY)
+                    if (imgX in 0 until displayedImage.width && imgY in 0 until displayedImage.height) {
+                        val pixel = displayedImage.getRGB(imgX, imgY)
                         val r = (pixel shr 16) and 0xFF
                         val g = (pixel shr 8) and 0xFF
                         val b = pixel and 0xFF
@@ -123,7 +125,7 @@ class ImageViewDialog(
     private inner class CopyAction : DumbAwareAction("Copy", "Copy image to clipboard", AllIcons.Actions.Copy) {
         override fun actionPerformed(e: AnActionEvent) {
             val clipboard = Toolkit.getDefaultToolkit().systemClipboard
-            clipboard.setContents(TransferableImage(originalImage), null)
+            clipboard.setContents(TransferableImage(displayedImage), null)
         }
     }
 
@@ -132,11 +134,12 @@ class ImageViewDialog(
             val fileChooser = JFileChooser()
             fileChooser.dialogTitle = "Save Image"
             fileChooser.fileSelectionMode = JFileChooser.FILES_ONLY
+            fileChooser.fileFilter = FileNameExtensionFilter("PNG (*.png)", "*.png")
 
             val userSelection = fileChooser.showSaveDialog(null)
             if (userSelection == JFileChooser.APPROVE_OPTION) {
                 val fileToSave = fileChooser.selectedFile
-                ImageIO.write(originalImage, "png", fileToSave)
+                ImageIO.write(displayedImage, "png", fileToSave)
             }
         }
     }
@@ -165,13 +168,6 @@ class ImageViewDialog(
         }
     }
 
-    private fun base64ToImage(base64String: String): BufferedImage {
-        val imageBytes = Base64.getDecoder().decode(base64String)
-        return ByteArrayInputStream(imageBytes).use {
-            ImageIO.read(it)
-        }
-    }
-
     private fun zoom(factor: Double) {
         currentZoom *= factor
         updateImage()
@@ -179,8 +175,8 @@ class ImageViewDialog(
 
     private fun fitToWindow() {
         val viewportSize = scrollPane.viewport.size
-        val widthRatio = viewportSize.width.toDouble() / originalImage.width
-        val heightRatio = viewportSize.height.toDouble() / originalImage.height
+        val widthRatio = viewportSize.width.toDouble() / displayedImage.width
+        val heightRatio = viewportSize.height.toDouble() / displayedImage.height
         currentZoom = min(widthRatio, heightRatio)
         updateImage()
     }
@@ -191,9 +187,9 @@ class ImageViewDialog(
     }
 
     private fun updateImage() {
-        val newWidth = (originalImage.width * currentZoom).toInt()
-        val newHeight = (originalImage.height * currentZoom).toInt()
-        val resizedImage = originalImage.getScaledInstance(newWidth, newHeight, Image.SCALE_DEFAULT)
+        val newWidth = (displayedImage.width * currentZoom).toInt()
+        val newHeight = (displayedImage.height * currentZoom).toInt()
+        val resizedImage = displayedImage.getScaledInstance(newWidth, newHeight, Image.SCALE_DEFAULT)
         imageLabel.icon = ImageIcon(resizedImage)
         imageLabel.revalidate()
         imageLabel.repaint()
