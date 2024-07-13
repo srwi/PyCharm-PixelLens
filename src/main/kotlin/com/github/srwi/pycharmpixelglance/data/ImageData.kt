@@ -17,19 +17,36 @@ class CustomImage(
     private var image: NDArray<Float, D3>
 
     init {
-        val reshapedData = reshapeDataToD3(originalData)
-        image = preprocessData(reshapedData, originalDataType)
+        val adjusted = adjustValueRange(originalData, originalDataType)
+        image = reshapeData(adjusted)
+        // TODO: handle CHW images
     }
 
-    private fun reshapeDataToD3(array: NDArray<Any, DN>) : NDArray<Any, D3> {
-        if (array.shape.size == 3) {
-            return array as NDArray<Any, D3>
+    private fun reshapeData(array: NDArray<Float, DN>) : NDArray<Float, D3> {
+        when (array.shape.size) {
+            1, 2 -> {
+                val unsqueezed = array.unsqueeze(array.shape.size)
+                return reshapeData(unsqueezed)
+            }
+            3 -> {
+                return array as NDArray<Float, D3>
+            }
+            else -> {
+                if (array.shape[0] == 1) {
+                    val squeezed = array.squeeze(0)
+                    return reshapeData(squeezed)
+                }
+                else if (array.shape[array.shape.size - 1] == 1) {
+                    val squeezed = array.squeeze(array.shape.size - 1)
+                    return reshapeData(squeezed)
+                }
+            }
         }
 
-        throw Exception("Currently only RGB images are supported.")
+        throw Exception("Shape ${array.shape.contentToString()} not supported.")
     }
 
-    private fun preprocessData(array: NDArray<Any, D3>, dataType: String): NDArray<Float, D3> {
+    private fun adjustValueRange(array: NDArray<Any, DN>, dataType: String): NDArray<Float, DN> {
         val preprocessed = when (dataType) {
             "int8" -> {
                 array.asType<Float>() + 128f
