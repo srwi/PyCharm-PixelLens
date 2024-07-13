@@ -81,36 +81,35 @@ class NumpyImageProvider : ImageProvider() {
                 imageBuffer.asLongBuffer().get(array)
                 mk.ndarray(array)
             }
-//            "uint8" -> {
-//                val array = ByteArray(imageBytes.size)
-//                imageBuffer.get(array)
-//                val ubyteArray = array.map { (it and 0xFF.toByte()).toUByte() }.toUByteArray()
-//                mk.ndarray(ubyteArray)
-//            }
-//            "uint16" -> {
-//                val array = ShortArray(imageBytes.size / 2)
-//                imageBuffer.asShortBuffer().get(array)
-//                val ushortArray = array.map { it.toUShort() }.toUShortArray()
-//                mk.ndarray(ushortArray)
-//            }
-//            "uint32" -> {
-//                val array = IntArray(imageBytes.size / 4)
-//                imageBuffer.asIntBuffer().get(array)
-//                val uintArray = array.map { it.toUInt() }.toUIntArray()
-//                mk.ndarray(uintArray)
-//            }
-//            "uint64" -> {
-//                val array = LongArray(imageBytes.size / 8)
-//                imageBuffer.asLongBuffer().get(array)
-//                val ulongArray = array.map { it.toULong() }.toULongArray()
-//                mk.ndarray(ulongArray)
-//            }
-//            "bool" -> {
-//                val array = ByteArray(imageBytes.size)
-//                imageBuffer.get(array)
-//                val booleanArray = array.map { it != 0.toByte() }.toBooleanArray()
-//                mk.ndarray(booleanArray)
-//            }
+            "uint8" -> {
+                val array = ByteArray(imageBytes.size)
+                imageBuffer.get(array)
+                val shortArray = array.map { it.toUByte().toShort() }
+                mk.ndarray(shortArray)
+            }
+            "uint16" -> {
+                val array = ShortArray(imageBytes.size / 2)
+                imageBuffer.asShortBuffer().get(array)
+                val intArray = array.map { it.toUShort().toInt() }
+                mk.ndarray(intArray)
+            }
+            "uint32" -> {
+                val array = IntArray(imageBytes.size / 4)
+                imageBuffer.asIntBuffer().get(array)
+                val longArray = array.map { it.toUInt().toLong() }
+                mk.ndarray(longArray)
+            }
+            "uint64" -> {
+                val array = LongArray(imageBytes.size / 8)
+                imageBuffer.asLongBuffer().get(array)
+                val doubleArray = array.map { it.toULong().toDouble() }
+                mk.ndarray(doubleArray)
+            }
+            "bool" -> {
+                val array = ByteArray(imageBytes.size)
+                imageBuffer.get(array)
+                mk.ndarray(array)
+            }
             else -> throw IllegalArgumentException("Unsupported data type: $dtype")
         }
 
