@@ -11,10 +11,9 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBViewport
-import java.awt.BorderLayout
-import java.awt.Dimension
-import java.awt.Image
-import java.awt.Toolkit
+import com.intellij.ui.scale.JBUIScale
+import com.intellij.util.ui.ImageUtil
+import java.awt.*
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
 import java.awt.event.MouseEvent
@@ -38,15 +37,19 @@ class ImageViewDialog(
     private val scrollPane: JBScrollPane
     private val footerLabel: JLabel
     private var currentZoom: Double = 1.0
+    private val checkerboardSize = 4
 
     init {
         this.title = title
         this.image = image
         displayedImage = image.getBuffer()
-        imageLabel = JLabel(ImageIcon(displayedImage))
+        imageLabel = JLabel()
+        imageLabel.horizontalAlignment = SwingConstants.CENTER
+        imageLabel.verticalAlignment = SwingConstants.CENTER
         scrollPane = JBScrollPane(imageLabel)
         footerLabel = JLabel(" ")
         init()
+        updateImage()
     }
 
     override fun createCenterPanel(): JComponent {
@@ -74,9 +77,6 @@ class ImageViewDialog(
 
             private fun updateFooter(e: MouseEvent) {
                 e.let {
-                    val mouseX = e.x
-                    val mouseY = e.y
-
                     val icon = imageLabel.icon as ImageIcon
                     val iconWidth = icon.iconWidth
                     val iconHeight = icon.iconHeight
@@ -87,15 +87,16 @@ class ImageViewDialog(
                     val xOffset = max((aViewport.width - iconWidth) / 2 - viewPosition.x, 0)
                     val yOffset = max((aViewport.height - iconHeight) / 2 - viewPosition.y, 0)
 
-                    val imgX = ((mouseX - xOffset) / currentZoom).toInt()
-                    val imgY = ((mouseY - yOffset) / currentZoom).toInt()
+                    val imgX = ((e.x - xOffset) / currentZoom / JBUIScale.sysScale()).toInt()
+                    val imgY = ((e.y - yOffset) / currentZoom / JBUIScale.sysScale()).toInt()
 
                     if (imgX in 0 until displayedImage.width && imgY in 0 until displayedImage.height) {
                         val pixel = displayedImage.getRGB(imgX, imgY)
                         val r = (pixel shr 16) and 0xFF
                         val g = (pixel shr 8) and 0xFF
                         val b = pixel and 0xFF
-                        footerLabel.text = "x=$imgX, y=$imgY, value=($r, $g, $b)"
+                        val a = (pixel shr 24) and 0xFF
+                        footerLabel.text = "x=$imgX, y=$imgY, value=($r, $g, $b, $a)"
                     } else {
                         footerLabel.text = " "
                     }
@@ -146,13 +147,13 @@ class ImageViewDialog(
 
     private inner class ZoomInAction : DumbAwareAction("Zoom In", "Zoom in", AllIcons.General.ZoomIn) {
         override fun actionPerformed(e: AnActionEvent) {
-            zoom(1.25)
+            zoom(1.4)
         }
     }
 
     private inner class ZoomOutAction : DumbAwareAction("Zoom Out", "Zoom out", AllIcons.General.ZoomOut) {
         override fun actionPerformed(e: AnActionEvent) {
-            zoom(0.8)
+            zoom(0.7)
         }
     }
 
@@ -177,7 +178,7 @@ class ImageViewDialog(
         val viewportSize = scrollPane.viewport.size
         val widthRatio = viewportSize.width.toDouble() / displayedImage.width
         val heightRatio = viewportSize.height.toDouble() / displayedImage.height
-        currentZoom = min(widthRatio, heightRatio)
+        currentZoom = min(widthRatio, heightRatio) / JBUIScale.sysScale()
         updateImage()
     }
 
@@ -189,10 +190,33 @@ class ImageViewDialog(
     private fun updateImage() {
         val newWidth = (displayedImage.width * currentZoom).toInt()
         val newHeight = (displayedImage.height * currentZoom).toInt()
-        val resizedImage = displayedImage.getScaledInstance(newWidth, newHeight, Image.SCALE_DEFAULT)
-        imageLabel.icon = ImageIcon(resizedImage)
+
+        val finalImage = ImageUtil.createImage(newWidth, newHeight, BufferedImage.TYPE_INT_ARGB)
+        val g2d = finalImage.createGraphics()
+
+        if (displayedImage.colorModel.hasAlpha()) {
+            drawCheckerboard(g2d, newWidth, newHeight)
+        }
+
+        g2d.drawImage(displayedImage, 0, 0, newWidth, newHeight, null)
+        g2d.dispose()
+
+        imageLabel.icon = ImageIcon(finalImage)
         imageLabel.revalidate()
         imageLabel.repaint()
+    }
+
+    private fun drawCheckerboard(g2d: Graphics2D, width: Int, height: Int) {
+        g2d.color = Color.LIGHT_GRAY
+        g2d.fillRect(0, 0, width, height)
+
+        g2d.color = Color.WHITE
+        for (x in 0 until width step checkerboardSize * 2) {
+            for (y in 0 until height step checkerboardSize * 2) {
+                g2d.fillRect(x, y, checkerboardSize, checkerboardSize)
+                g2d.fillRect(x + checkerboardSize, y + checkerboardSize, checkerboardSize, checkerboardSize)
+            }
+        }
     }
 
     private class TransferableImage(private val image: BufferedImage) : Transferable {

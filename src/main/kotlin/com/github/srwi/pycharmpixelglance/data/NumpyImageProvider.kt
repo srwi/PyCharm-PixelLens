@@ -113,7 +113,7 @@ class NumpyImageProvider : ImageProvider() {
             else -> throw IllegalArgumentException("Unsupported data type: $dtype")
         }
 
-        // Unfortunately multik forces us to handle common number of dimensions explicitly
+        // Unfortunately multik forces us to handle common numbers of dimensions explicitly
         @Suppress("UNCHECKED_CAST") val reshapedArray: NDArray<Any, DN> = when (shape.size) {
             1 -> multikArray.reshape(shape[0])
             2 -> multikArray.reshape(shape[0], shape[1])
