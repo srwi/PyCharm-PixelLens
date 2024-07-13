@@ -1,38 +1,45 @@
+package com.github.srwi.pycharmpixelglance.data
+
 import org.jetbrains.kotlinx.multik.ndarray.data.DN
 import org.jetbrains.kotlinx.multik.ndarray.data.NDArray
-import org.jetbrains.kotlinx.multik.ndarray.operations.map
+import org.jetbrains.kotlinx.multik.ndarray.operations.div
+import org.jetbrains.kotlinx.multik.ndarray.operations.plus
 
 class CustomImage(
-    originalImage: NDArray<Any, DN>,
+    originalData: NDArray<Any, DN>,
+    originalDataType: String
 ) {
-    private val image: NDArray<Float, DN>
-    val shape: IntArray
-    val height: Int
-    val width: Int
-    val channels: Int
+    private var image: NDArray<Float, DN>
 
     init {
-        shape = originalImage.shape
-        require(shape.size in 2..3) { "Image must be 2D or 3D" }
-        height = shape[0]
-        width = shape[1]
-        channels = if (shape.size == 3) shape[2] else 1
-        image = convertToFloatArray(originalImage)
+        image = preprocessArray(originalData, originalDataType)
     }
 
-    private fun convertToFloatArray(input: NDArray<Any, DN>): NDArray<Float, DN> {
-        return input.map { value ->
-            when (value) {
-                is Byte -> if (value < 0) (value.toInt() + 128) / 255f else value.toInt() / 255f
-                is Short -> if (value < 0) (value.toLong() + 32768) / 65280f else value.toLong() / 65280f
-                is Int -> if (value < 0) (value.toLong() + 2147483648) / 4294967295f else value.toLong() / 4294967295f
-                is Long -> if (value < 0) (value + 9223372036854775807) / 18446744073709551615.0f else value / 18446744073709551615.0f
-                is Float -> value
-                is Double -> value.toFloat()
-                is Boolean -> if (value) 1f else 0f
-                else -> throw IllegalArgumentException("Unsupported data type: ${value::class.simpleName}")
+    private fun preprocessArray(array: NDArray<Any, DN>, dataType: String): NDArray<Float, DN> {
+        val preprocessed = when (dataType) {
+            "int8" -> {
+                val floatArray = array.asType<Float>()
+                (floatArray + 128f) / 255f
             }
+            "uint8" -> {
+                val floatArray = array.asType<Float>()
+                floatArray / 255f
+            }
+            "uint16", "uint32", "uint64" -> {
+                val doubleArray = array.asType<Double>()
+                doubleArray / 256.0 / 255.0
+            }
+            "int16", "int32", "int64" -> {
+                val doubleArray = array.asType<Double>()
+                ((doubleArray / 256.0) + 128.0) / 255.0
+            }
+            "bool" -> {
+                array.asType<Float>()
+            }
+            else -> throw IllegalArgumentException("Unsupported data type: $dataType")
         }
+
+        return preprocessed.asType<Float>()
     }
 
 //    fun getShape(): IntArray = shape

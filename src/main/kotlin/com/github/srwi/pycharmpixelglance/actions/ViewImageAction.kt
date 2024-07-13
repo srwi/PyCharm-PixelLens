@@ -13,10 +13,12 @@ class ViewImageAction : AnAction() {
         val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
         val frameAccessor = value.frameAccessor
 
-        // if (is numpy type) {
-            val numpyImageProvider = NumpyImageProvider()
-            val imageArray = numpyImageProvider.getVariable(frameAccessor, value.name)
-        // }
+        val image = when (value.typeQualifier) {
+            "numpy" -> {
+                NumpyImageProvider().getImageByVariableName(frameAccessor, value.name)
+            }
+            else -> throw IllegalArgumentException("Unsupported type qualifier: ${value.typeQualifier}")
+        }
 
         val pause = 0
     }

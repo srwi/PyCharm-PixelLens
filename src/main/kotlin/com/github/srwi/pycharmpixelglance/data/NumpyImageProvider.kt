@@ -36,7 +36,7 @@ class NumpyImageProvider : ImageProvider() {
         return deserializeJsonPayload(data as String)
     }
 
-    override fun processImageData(payload: Payload): NDArray<Any, DN> {
+    override fun processImageData(payload: Payload): CustomImage {
         val imageBase64 = payload.imageData
         val shape = payload.metadata.shape.toIntArray()
         val dtype = payload.metadata.dtype
@@ -121,7 +121,7 @@ class NumpyImageProvider : ImageProvider() {
             else -> throw IllegalArgumentException("Unsupported shape size: ${shape.size}")
         } as NDArray<Any, DN>
 
-        return reshapedArray
+        return CustomImage(reshapedArray, dtype)
     }
 
     object Float16 {
