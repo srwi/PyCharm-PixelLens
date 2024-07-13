@@ -36,7 +36,7 @@ class NumpyImageProvider : ImageProvider() {
         return deserializeJsonPayload(data as String)
     }
 
-    override fun processImageData(payload: Payload): CustomImage {
+    override fun processImageData(payload: Payload): DisplayableData {
         val imageBase64 = payload.imageData
         val shape = payload.metadata.shape.toIntArray()
         val dtype = payload.metadata.dtype
@@ -122,7 +122,7 @@ class NumpyImageProvider : ImageProvider() {
             else -> multikArray.reshape(shape[0], shape[1], shape[2], shape[3], *shape.slice(4 until shape.size).toIntArray())
         } as NDArray<Any, DN>
 
-        return CustomImage(reshapedArray, dtype)
+        return DisplayableData(reshapedArray, dtype)
     }
 
     object Float16 {

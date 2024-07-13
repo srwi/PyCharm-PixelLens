@@ -1,6 +1,6 @@
 package com.github.srwi.pycharmpixelglance.dialogs
 
-import com.github.srwi.pycharmpixelglance.data.CustomImage
+import com.github.srwi.pycharmpixelglance.data.DisplayableData
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -28,12 +28,12 @@ import kotlin.math.min
 
 class ImageViewDialog(
     project: Project?,
-    image: CustomImage,
+    image: DisplayableData,
     title: String
 ) : DialogWrapper(project) {
 
     private val imageLabel: JLabel
-    private val image: CustomImage
+    private val image: DisplayableData
     private val displayedImage: BufferedImage
     private val scrollPane: JBScrollPane
     private val footerLabel: JLabel

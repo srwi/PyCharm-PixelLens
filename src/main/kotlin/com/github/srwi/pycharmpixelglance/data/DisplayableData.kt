@@ -10,7 +10,7 @@ import org.jetbrains.kotlinx.multik.ndarray.operations.plus
 import org.jetbrains.kotlinx.multik.ndarray.operations.times
 import java.awt.image.BufferedImage
 
-class CustomImage(
+class DisplayableData(
     originalData: NDArray<Any, DN>,
     originalDataType: String
 ) {
@@ -72,21 +72,44 @@ class CustomImage(
         return preprocessed.asType<Float>().clip(0f, 255f)
     }
 
-    fun getBuffer() : BufferedImage {
+    fun getBuffer(): BufferedImage {
         val height = image.shape[0]
         val width = image.shape[1]
+        val channels = image.shape[2]
 
-        val bufferedImage = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)  // TODO: HiDPI
+        val bufferedImage = when (channels) {
+            1 -> BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY)
+            3 -> BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+            4 -> BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
+            else -> throw IllegalArgumentException("Unsupported number of channels: $channels")
+        }
 
         for (y in 0 until height) {
             for (x in 0 until width) {
-                val r = (image[y, x, 0]).toInt().coerceIn(0, 255)
-                val g = (image[y, x, 1]).toInt().coerceIn(0, 255)
-                val b = (image[y, x, 2]).toInt().coerceIn(0, 255)
-                val rgb = (r shl 16) or (g shl 8) or b
+                val rgb = when (channels) {
+                    1 -> {
+                        val gray = image[y, x, 0].toInt().coerceIn(0, 255)
+                        (gray shl 16) or (gray shl 8) or gray
+                    }
+                    3 -> {
+                        val r = image[y, x, 0].toInt().coerceIn(0, 255)
+                        val g = image[y, x, 1].toInt().coerceIn(0, 255)
+                        val b = image[y, x, 2].toInt().coerceIn(0, 255)
+                        (r shl 16) or (g shl 8) or b
+                    }
+                    4 -> {
+                        val r = image[y, x, 0].toInt().coerceIn(0, 255)
+                        val g = image[y, x, 1].toInt().coerceIn(0, 255)
+                        val b = image[y, x, 2].toInt().coerceIn(0, 255)
+                        val a = image[y, x, 3].toInt().coerceIn(0, 255)
+                        (a shl 24) or (r shl 16) or (g shl 8) or b
+                    }
+                    else -> throw IllegalStateException("This should never happen due to previous check")
+                }
                 bufferedImage.setRGB(x, y, rgb)
             }
         }
+
         return bufferedImage
     }
 
