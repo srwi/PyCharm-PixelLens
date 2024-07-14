@@ -9,11 +9,15 @@ import com.intellij.openapi.actionSystem.Separator
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBViewport
 import com.intellij.ui.scale.JBUIScale
 import com.intellij.util.ui.ImageUtil
-import java.awt.*
+import java.awt.BorderLayout
+import java.awt.Dimension
+import java.awt.Graphics2D
+import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
 import java.awt.event.MouseEvent
@@ -36,8 +40,12 @@ class ImageViewDialog(
     private val displayedImage: BufferedImage
     private val scrollPane: JBScrollPane
     private val footerLabel: JLabel
-    private var currentZoom: Double = 1.0
     private val checkerboardSize = 4
+
+    private var currentZoom = 1.0
+        set(value) {
+            field = min(30.0, value)
+        }
 
     init {
         this.title = title
@@ -87,8 +95,8 @@ class ImageViewDialog(
                     val xOffset = max((aViewport.width - iconWidth) / 2 - viewPosition.x, 0)
                     val yOffset = max((aViewport.height - iconHeight) / 2 - viewPosition.y, 0)
 
-                    val imgX = ((e.x - xOffset) / currentZoom / JBUIScale.sysScale()).toInt()
-                    val imgY = ((e.y - yOffset) / currentZoom / JBUIScale.sysScale()).toInt()
+                    val imgX = ((e.x - xOffset) / currentZoom).toInt()
+                    val imgY = ((e.y - yOffset) / currentZoom).toInt()
 
                     if (imgX in 0 until displayedImage.width && imgY in 0 until displayedImage.height) {
                         val pixel = displayedImage.getRGB(imgX, imgY)
@@ -178,7 +186,7 @@ class ImageViewDialog(
         val viewportSize = scrollPane.viewport.size
         val widthRatio = viewportSize.width.toDouble() / displayedImage.width
         val heightRatio = viewportSize.height.toDouble() / displayedImage.height
-        currentZoom = min(widthRatio, heightRatio) / JBUIScale.sysScale()
+        currentZoom = min(widthRatio, heightRatio)
         updateImage()
     }
 
@@ -188,8 +196,10 @@ class ImageViewDialog(
     }
 
     private fun updateImage() {
-        val newWidth = (displayedImage.width * currentZoom).toInt()
-        val newHeight = (displayedImage.height * currentZoom).toInt()
+        val dpiCorrectedZoom = currentZoom / JBUIScale.sysScale()
+
+        val newWidth = (displayedImage.width * dpiCorrectedZoom).toInt()
+        val newHeight = (displayedImage.height * dpiCorrectedZoom).toInt()
 
         val finalImage = ImageUtil.createImage(newWidth, newHeight, BufferedImage.TYPE_INT_ARGB)
         val g2d = finalImage.createGraphics()
@@ -207,10 +217,10 @@ class ImageViewDialog(
     }
 
     private fun drawCheckerboard(g2d: Graphics2D, width: Int, height: Int) {
-        g2d.color = Color.LIGHT_GRAY
+        g2d.color = JBColor.LIGHT_GRAY
         g2d.fillRect(0, 0, width, height)
 
-        g2d.color = Color.WHITE
+        g2d.color = JBColor.WHITE
         for (x in 0 until width step checkerboardSize * 2) {
             for (y in 0 until height step checkerboardSize * 2) {
                 g2d.fillRect(x, y, checkerboardSize, checkerboardSize)
