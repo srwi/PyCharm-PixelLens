@@ -2,23 +2,22 @@ package com.github.srwi.pycharmpixelglance.dialogs
 
 import com.github.srwi.pycharmpixelglance.data.DisplayableData
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.actionSystem.DefaultActionGroup
-import com.intellij.openapi.actionSystem.Separator
+import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBScrollPane
-import com.intellij.ui.components.JBViewport
 import com.intellij.ui.scale.JBUIScale
 import com.intellij.util.ui.ImageUtil
 import java.awt.BorderLayout
+import java.awt.Dimension
 import java.awt.Graphics2D
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
 import java.awt.event.MouseEvent
 import java.awt.event.MouseMotionListener
 import java.awt.image.BufferedImage
@@ -42,11 +41,22 @@ class ImageViewDialog(
     private val checkerboardSize = 4
     private var checkerboardEnabled = true
     private var pixelGridEnabled = false
+    private var autoResizeEnabled = false
 
     private var currentZoom = 1.0
         set(value) {
-            field = min(30.0, value)
+            field = min(MAX_ZOOM, max(MIN_ZOOM, value))
         }
+
+    private lateinit var zoomInAction: ZoomInAction
+    private lateinit var zoomOutAction: ZoomOutAction
+    private lateinit var fitToWindowAction: FitToWindowAction
+    private lateinit var originalSizeAction: OriginalSizeAction
+
+    companion object {
+        private const val MAX_ZOOM = 30.0
+        private const val MIN_ZOOM = 0.1
+    }
 
     init {
         this.title = title
@@ -67,14 +77,40 @@ class ImageViewDialog(
         val toolbar = createToolbar()
         panel.add(toolbar, BorderLayout.NORTH)
 
-//        scrollPane.preferredSize = Dimension(600, 400)
-
-        val viewport = JBViewport()
-        viewport.add(scrollPane, BorderLayout.CENTER)
-
-        panel.add(viewport, BorderLayout.CENTER)
+        panel.add(scrollPane, BorderLayout.CENTER)
         panel.add(footerLabel, BorderLayout.SOUTH)
 
+        addMouseMotionListener()
+        addResizeListener()
+
+        return panel
+    }
+
+    private fun createToolbar(): JComponent {
+        zoomInAction = ZoomInAction()
+        zoomOutAction = ZoomOutAction()
+        fitToWindowAction = FitToWindowAction()
+        originalSizeAction = OriginalSizeAction()
+
+        val actionGroup = DefaultActionGroup().apply {
+            add(SaveAction())
+            add(CopyAction())
+            add(Separator())
+            add(zoomInAction)
+            add(zoomOutAction)
+            add(fitToWindowAction)
+            add(originalSizeAction)
+            add(Separator())
+            add(ToggleCheckerboardAction())
+            add(TogglePixelGridAction())
+        }
+
+        return ActionManager.getInstance()
+            .createActionToolbar("ImageViewerToolbar", actionGroup, true)
+            .component
+    }
+
+    private fun addMouseMotionListener() {
         imageLabel.addMouseMotionListener(object : MouseMotionListener {
             override fun mouseDragged(e: MouseEvent) {
                 updateFooter(e)
@@ -85,54 +121,40 @@ class ImageViewDialog(
             }
 
             private fun updateFooter(e: MouseEvent) {
-                e.let {
-                    val icon = imageLabel.icon as ImageIcon
-                    val iconWidth = icon.iconWidth
-                    val iconHeight = icon.iconHeight
+                val icon = imageLabel.icon as ImageIcon
+                val iconWidth = icon.iconWidth
+                val iconHeight = icon.iconHeight
 
-                    val aViewport = scrollPane.viewport
-                    val viewPosition = aViewport.viewPosition
+                val viewPosition = scrollPane.viewport.viewPosition
 
-                    val xOffset = max((aViewport.width - iconWidth) / 2 - viewPosition.x, 0)
-                    val yOffset = max((aViewport.height - iconHeight) / 2 - viewPosition.y, 0)
+                val xOffset = max((scrollPane.viewport.width - iconWidth) / 2, 0)
+                val yOffset = max((scrollPane.viewport.height - iconHeight) / 2, 0)
 
-                    val imgX = ((e.x - xOffset) / currentZoom).toInt()
-                    val imgY = ((e.y - yOffset) / currentZoom).toInt()
+                val imgX = ((e.x + viewPosition.x - xOffset) / currentZoom).toInt()
+                val imgY = ((e.y + viewPosition.y - yOffset) / currentZoom).toInt()
 
-                    if (imgX in 0 until displayedImage.width && imgY in 0 until displayedImage.height) {
-                        val pixel = displayedImage.getRGB(imgX, imgY)
-                        val r = (pixel shr 16) and 0xFF
-                        val g = (pixel shr 8) and 0xFF
-                        val b = pixel and 0xFF
-                        val a = (pixel shr 24) and 0xFF
-                        footerLabel.text = "x=$imgX, y=$imgY, value=($r, $g, $b, $a)"
-                    } else {
-                        footerLabel.text = " "
-                    }
+                if (imgX in 0 until displayedImage.width && imgY in 0 until displayedImage.height) {
+                    val pixel = displayedImage.getRGB(imgX, imgY)
+                    val r = (pixel shr 16) and 0xFF
+                    val g = (pixel shr 8) and 0xFF
+                    val b = pixel and 0xFF
+                    val a = (pixel shr 24) and 0xFF
+                    footerLabel.text = "x=$imgX, y=$imgY, value=($r, $g, $b, $a)"
+                } else {
+                    footerLabel.text = " "
                 }
             }
         })
-
-        return panel
     }
 
-    private fun createToolbar(): JComponent {
-        val actionGroup = DefaultActionGroup().apply {
-            add(SaveAction())
-            add(CopyAction())
-            add(Separator())
-            add(ZoomInAction())
-            add(ZoomOutAction())
-            add(FitToWindowAction())
-            add(OriginalSizeAction())
-            add(Separator())
-            add(ToggleCheckerboardAction())
-            add(TogglePixelGridAction())
-        }
-
-        return ActionManager.getInstance()
-            .createActionToolbar("ImageViewerToolbar", actionGroup, true)
-            .component
+    private fun addResizeListener() {
+        window.addComponentListener(object : ComponentAdapter() {
+            override fun componentResized(e: ComponentEvent) {
+                if (autoResizeEnabled) {
+                    fitToWindow()
+                }
+            }
+        })
     }
 
     private inner class CopyAction : DumbAwareAction("Copy", "Copy image to clipboard", AllIcons.Actions.Copy) {
@@ -159,45 +181,75 @@ class ImageViewDialog(
 
     private inner class ZoomInAction : DumbAwareAction("Zoom In", "Zoom in", AllIcons.General.ZoomIn) {
         override fun actionPerformed(e: AnActionEvent) {
+            disableAutoResize()
             zoom(1.5)
+        }
+
+        override fun update(e: AnActionEvent) {
+            e.presentation.isEnabled = currentZoom < MAX_ZOOM
         }
     }
 
     private inner class ZoomOutAction : DumbAwareAction("Zoom Out", "Zoom out", AllIcons.General.ZoomOut) {
         override fun actionPerformed(e: AnActionEvent) {
+            disableAutoResize()
             zoom(1 / 1.5)
+        }
+
+        override fun update(e: AnActionEvent) {
+            e.presentation.isEnabled = currentZoom > MIN_ZOOM
         }
     }
 
     private inner class FitToWindowAction : DumbAwareAction("Fit to Window", "Fit image to window size", AllIcons.General.FitContent) {
         override fun actionPerformed(e: AnActionEvent) {
+            autoResizeEnabled = true
             fitToWindow()
+        }
+
+        override fun update(e: AnActionEvent) {
+            e.presentation.isEnabled = !autoResizeEnabled
         }
     }
 
     private inner class OriginalSizeAction : DumbAwareAction("Original Size", "Reset to original size", AllIcons.General.ActualZoom) {
         override fun actionPerformed(e: AnActionEvent) {
+            disableAutoResize()
             resetZoom()
         }
+
+        override fun update(e: AnActionEvent) {
+            e.presentation.isEnabled = currentZoom != 1.0
+        }
     }
 
-    private inner class ToggleCheckerboardAction : DumbAwareAction("Toggle Checkerboard", "Toggle checkerboard background", AllIcons.Gutter.Colors) {
-        override fun actionPerformed(e: AnActionEvent) {
-            checkerboardEnabled = !checkerboardEnabled
+    private inner class ToggleCheckerboardAction : ToggleAction("Toggle Checkerboard", "Toggle checkerboard background", AllIcons.Gutter.Colors) {
+        override fun isSelected(e: AnActionEvent): Boolean = checkerboardEnabled
+
+        override fun setSelected(e: AnActionEvent, state: Boolean) {
+            checkerboardEnabled = state
             updateImage()
         }
     }
 
-    private inner class TogglePixelGridAction : DumbAwareAction("Toggle Pixel Grid", "Toggle pixel grid overlay", AllIcons.Graph.Grid) {
-        override fun actionPerformed(e: AnActionEvent) {
-            pixelGridEnabled = !pixelGridEnabled
+    private inner class TogglePixelGridAction : ToggleAction("Toggle Pixel Grid", "Toggle pixel grid overlay", AllIcons.Graph.Grid) {
+        override fun isSelected(e: AnActionEvent): Boolean = pixelGridEnabled
+
+        override fun setSelected(e: AnActionEvent, state: Boolean) {
+            pixelGridEnabled = state
             updateImage()
         }
+    }
+
+    private fun disableAutoResize() {
+        autoResizeEnabled = false
+        updateActionStates()
     }
 
     private fun zoom(factor: Double) {
         currentZoom *= factor
         updateImage()
+        updateActionStates()
     }
 
     private fun fitToWindow() {
@@ -206,11 +258,20 @@ class ImageViewDialog(
         val heightRatio = viewportSize.height.toDouble() / displayedImage.height
         currentZoom = min(widthRatio, heightRatio)
         updateImage()
+        updateActionStates()
     }
 
     private fun resetZoom() {
         currentZoom = 1.0
         updateImage()
+        updateActionStates()
+    }
+
+    private fun updateActionStates() {
+        zoomInAction.templatePresentation.isEnabled = currentZoom < MAX_ZOOM
+        zoomOutAction.templatePresentation.isEnabled = currentZoom > MIN_ZOOM
+        originalSizeAction.templatePresentation.isEnabled = currentZoom != 1.0
+        fitToWindowAction.templatePresentation.isEnabled = !autoResizeEnabled
     }
 
     private fun updateImage() {
@@ -235,8 +296,9 @@ class ImageViewDialog(
         g2d.dispose()
 
         imageLabel.icon = ImageIcon(finalImage)
-        imageLabel.revalidate()
-        imageLabel.repaint()
+        imageLabel.preferredSize = Dimension(newWidth, newHeight)
+        scrollPane.viewport.revalidate()
+        scrollPane.viewport.repaint()
     }
 
     private fun drawCheckerboard(g2d: Graphics2D, width: Int, height: Int) {
