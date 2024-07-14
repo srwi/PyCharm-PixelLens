@@ -1,6 +1,9 @@
 package com.github.srwi.pycharmpixelglance.actions
 
 import com.github.srwi.pycharmpixelglance.data.NumpyImageProvider
+import com.github.srwi.pycharmpixelglance.data.PillowImageProvider
+import com.github.srwi.pycharmpixelglance.data.PytorchImageProvider
+import com.github.srwi.pycharmpixelglance.data.TensorflowImageProvider
 import com.github.srwi.pycharmpixelglance.dialogs.ImageViewDialog
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -13,13 +16,15 @@ class ViewImageAction : AnAction() {
         val project = e.project ?: return
         val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
         val frameAccessor = value.frameAccessor
-
-        val image = when (value.typeQualifier) {
-            "numpy" -> {
-                NumpyImageProvider().getImageByVariableName(frameAccessor, value.name)
-            }
-            else -> throw IllegalArgumentException("Unsupported type qualifier: ${value.typeQualifier}")
+        val typeQualifier = value.typeQualifier as String
+        val imageProvider = when {
+            typeQualifier == "numpy" -> NumpyImageProvider()
+            typeQualifier == "torch" -> PytorchImageProvider()
+            typeQualifier == "PIL.Image" -> PillowImageProvider()
+            typeQualifier.startsWith("tensorflow") -> TensorflowImageProvider()
+            else -> throw IllegalArgumentException("Unsupported type qualifier: $typeQualifier")
         }
+        val image = imageProvider.getImageByVariableName(frameAccessor, value.name)
 
         ImageViewDialog(project, image, value.name).show()
     }

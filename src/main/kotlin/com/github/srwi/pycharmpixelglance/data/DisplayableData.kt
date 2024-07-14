@@ -51,16 +51,16 @@ class DisplayableData(
             "int8" -> {
                 array.asType<Float>() + 128f
             }
-            "uint8" -> {
+            "uint8", "RGBA", "RGB", "L", "P" -> {
                 array.asType<Float>()
             }
             "uint16", "uint32", "uint64" -> {
                 array.asType<Double>() / 256.0
             }
-            "int16", "int32", "int64" -> {
+            "int16", "int32", "int64", "I" -> {
                 (array.asType<Double>() / 256.0) + 128.0
             }
-            "float16", "float32", "float64" -> {
+            "float16", "float32", "float64", "F" -> {
                 array.asType<Double>() * 255.0
             }
             "bool" -> {
