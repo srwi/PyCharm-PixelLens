@@ -9,6 +9,7 @@ import org.jetbrains.kotlinx.multik.ndarray.operations.div
 import org.jetbrains.kotlinx.multik.ndarray.operations.plus
 import org.jetbrains.kotlinx.multik.ndarray.operations.times
 import java.awt.image.BufferedImage
+import java.awt.image.DataBufferByte
 
 class DisplayableData(
     originalData: NDArray<Any, DN>,
@@ -79,34 +80,36 @@ class DisplayableData(
 
         val bufferedImage = when (channels) {
             1 -> BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY)
-            3 -> BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
-            4 -> BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
+            3 -> BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR)
+            4 -> BufferedImage(width, height, BufferedImage.TYPE_4BYTE_ABGR)
             else -> throw IllegalArgumentException("Unsupported number of channels: $channels")
         }
 
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                val rgb = when (channels) {
-                    1 -> {
-                        val gray = image[y, x, 0].toInt().coerceIn(0, 255)
-                        (gray shl 16) or (gray shl 8) or gray
-                    }
-                    3 -> {
-                        val r = image[y, x, 0].toInt().coerceIn(0, 255)
-                        val g = image[y, x, 1].toInt().coerceIn(0, 255)
-                        val b = image[y, x, 2].toInt().coerceIn(0, 255)
-                        (r shl 16) or (g shl 8) or b
-                    }
-                    4 -> {
-                        val r = image[y, x, 0].toInt().coerceIn(0, 255)
-                        val g = image[y, x, 1].toInt().coerceIn(0, 255)
-                        val b = image[y, x, 2].toInt().coerceIn(0, 255)
-                        val a = image[y, x, 3].toInt().coerceIn(0, 255)
-                        (a shl 24) or (r shl 16) or (g shl 8) or b
-                    }
-                    else -> throw IllegalStateException("This should never happen due to previous check")
+        val intImage = image.asType<Int>().clip(0, 255).flatten()
+
+        when (channels) {
+            1 -> {
+                val buffer = (bufferedImage.raster.dataBuffer as DataBufferByte).data
+                for (i in buffer.indices) {
+                    buffer[i] = intImage[i].toByte()
                 }
-                bufferedImage.setRGB(x, y, rgb)
+            }
+            3 -> {
+                val buffer = (bufferedImage.raster.dataBuffer as DataBufferByte).data
+                for (i in 0 until height * width) {
+                    buffer[i * 3] = intImage[i * 3 + 2].toByte()     // Blue
+                    buffer[i * 3 + 1] = intImage[i * 3 + 1].toByte() // Green
+                    buffer[i * 3 + 2] = intImage[i * 3].toByte()     // Red
+                }
+            }
+            4 -> {
+                val buffer = (bufferedImage.raster.dataBuffer as DataBufferByte).data
+                for (i in 0 until height * width) {
+                    buffer[i * 4] = intImage[i * 4 + 3].toByte()     // Alpha
+                    buffer[i * 4 + 1] = intImage[i * 4 + 2].toByte() // Blue
+                    buffer[i * 4 + 2] = intImage[i * 4 + 1].toByte() // Green
+                    buffer[i * 4 + 3] = intImage[i * 4].toByte()     // Red
+                }
             }
         }
 
