@@ -46,14 +46,10 @@ import kotlin.math.max
 internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: EditorOptions) : JPanel(), DataProvider, CopyProvider {
     val zoomModel: ImageZoomModel = ImageZoomModelImpl()
     private val wheelAdapter = ImageWheelAdapter()
-    private val changeListener: ChangeListener = DocumentChangeListener()
     val imageComponent: ImageComponent = ImageComponent()
-    private val contentPanel: JPanel
     private val infoLabel: JLabel
 
     init {
-        val document = imageComponent.document
-        document.addChangeListener(changeListener)
         // Set options
         val chessboardOptions = editorOptions.transparencyChessboardOptions
         val gridOptions = editorOptions.gridOptions
@@ -88,16 +84,13 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
         )
         val errorPanel = JPanel(BorderLayout())
         errorPanel.add(errorLabel, BorderLayout.CENTER)
-        contentPanel = JPanel(CardLayout())
-        contentPanel.add(scrollPane, IMAGE_PANEL)
-        contentPanel.add(errorPanel, ERROR_PANEL)
         val topPanel = JPanel(BorderLayout())
         topPanel.add(toolbarPanel, BorderLayout.WEST)
         infoLabel = JLabel(null as String?, SwingConstants.RIGHT)
         infoLabel.border = IdeBorderFactory.createEmptyBorder(0, 0, 0, 2)
         topPanel.add(infoLabel, BorderLayout.EAST)
         add(topPanel, BorderLayout.NORTH)
-        add(contentPanel, BorderLayout.CENTER)
+        add(scrollPane, BorderLayout.CENTER)
         updateInfo()
     }
 
@@ -119,12 +112,8 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
 //        }
     }
 
-    val contentComponent: JComponent
-        get() = contentPanel
-
     fun dispose() {
         imageComponent.removeMouseWheelListener(wheelAdapter)
-        imageComponent.document.removeChangeListener(changeListener)
         removeAll()
     }
 
@@ -268,18 +257,6 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
         }
     }
 
-    private inner class DocumentChangeListener : ChangeListener {
-        override fun stateChanged(e: ChangeEvent) {
-            val document = imageComponent.document
-            val value = document.value
-            val layout = contentPanel.layout as CardLayout
-            layout.show(contentPanel, if (value != null) IMAGE_PANEL else ERROR_PANEL)
-            updateInfo()
-            revalidate()
-            repaint()
-        }
-    }
-
     private inner class FocusRequester : MouseAdapter() {
         override fun mousePressed(e: MouseEvent) {
             requestFocus()
@@ -349,13 +326,5 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
             }
             return myImage
         }
-    }
-
-    companion object {
-        @NonNls
-        private val IMAGE_PANEL = "image"
-
-        @NonNls
-        private val ERROR_PANEL = "error"
     }
 }
