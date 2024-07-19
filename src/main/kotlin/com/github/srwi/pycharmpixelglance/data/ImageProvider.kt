@@ -119,7 +119,7 @@ abstract class ImageProvider {
             else -> multikArray.reshape(shape[0], shape[1], shape[2], shape[3], *shape.slice(4 until shape.size).toIntArray())
         } as NDArray<Any, DN>
 
-        return DisplayableData(reshapedArray, dtype)
+        return DisplayableData.fromNDArray(reshapedArray, dtype)
     }
 
     object Float16 {

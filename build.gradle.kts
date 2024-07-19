@@ -38,7 +38,7 @@ intellij {
     pluginName = properties("pluginName")
     version = properties("platformVersion")
     type = "PC" // PyCharm
-    plugins = listOf("PythonCore")
+    plugins = listOf("PythonCore", "platform-images")
     downloadSources = false
 }
 
