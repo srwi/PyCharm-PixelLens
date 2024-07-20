@@ -5,15 +5,14 @@ import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.DataProvider
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.ide.CopyPasteManager
-import com.intellij.openapi.ui.Messages
 import com.intellij.ui.IdeBorderFactory
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.components.JBLayeredPane
 import com.intellij.ui.components.Magnificator
 import com.intellij.util.ui.UIUtil
-import org.intellij.images.ImagesBundle
 import org.intellij.images.editor.ImageEditor
 import org.intellij.images.editor.ImageZoomModel
 import org.intellij.images.editor.actionSystem.ImageEditorActions
@@ -21,7 +20,6 @@ import org.intellij.images.options.EditorOptions
 import org.intellij.images.options.OptionsManager
 import org.intellij.images.ui.ImageComponent
 import org.intellij.images.ui.ImageComponentDecorator
-import org.jetbrains.annotations.NonNls
 import java.awt.*
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
@@ -32,21 +30,17 @@ import java.awt.event.MouseWheelEvent
 import java.awt.event.MouseWheelListener
 import java.awt.image.BufferedImage
 import java.io.IOException
-import javax.swing.*
-import javax.swing.event.ChangeEvent
-import javax.swing.event.ChangeListener
-import kotlin.math.ceil
+import javax.swing.JLabel
+import javax.swing.JPanel
+import javax.swing.ScrollPaneConstants
+import javax.swing.SwingConstants
 import kotlin.math.max
+import kotlin.math.min
 
-/**
- * Image editor UI
- *
- * @author [Alexey Efimov](mailto:aefimov.box@gmail.com)
- */
 internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: EditorOptions) : JPanel(), DataProvider, CopyProvider {
     val zoomModel: ImageZoomModel = ImageZoomModelImpl()
-    private val wheelAdapter = ImageWheelAdapter()
     val imageComponent: ImageComponent = ImageComponent()
+    private val wheelAdapter = ImageWheelAdapter()
     private val infoLabel: JLabel
 
     init {
@@ -70,6 +64,7 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
         scrollPane.addMouseWheelListener(wheelAdapter)
         // Construct UI
         layout = BorderLayout()
+
         val actionManager = ActionManager.getInstance()
         val actionGroup = actionManager.getAction(ImageEditorActions.GROUP_TOOLBAR) as ActionGroup
         val actionToolbar = actionManager.createActionToolbar(
@@ -78,19 +73,16 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
         actionToolbar.targetComponent = this
         val toolbarPanel = actionToolbar.component
         toolbarPanel.addMouseListener(FocusRequester())
-        val errorLabel = JLabel(
-            ImagesBundle.message("error.broken.image.file.format"),
-            Messages.getErrorIcon(), SwingConstants.CENTER
-        )
-        val errorPanel = JPanel(BorderLayout())
-        errorPanel.add(errorLabel, BorderLayout.CENTER)
+
         val topPanel = JPanel(BorderLayout())
         topPanel.add(toolbarPanel, BorderLayout.WEST)
         infoLabel = JLabel(null as String?, SwingConstants.RIGHT)
         infoLabel.border = IdeBorderFactory.createEmptyBorder(0, 0, 0, 2)
         topPanel.add(infoLabel, BorderLayout.EAST)
+
         add(topPanel, BorderLayout.NORTH)
         add(scrollPane, BorderLayout.CENTER)
+
         updateInfo()
     }
 
@@ -164,7 +156,7 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
             val editorOptions = options.editorOptions
             val zoomOptions = editorOptions.zoomOptions
             if (zoomOptions.isWheelZooming && e.isControlDown) {
-                if (e.wheelRotation < 0) {
+                if (e.wheelRotation > 0) {
                     zoomModel.zoomOut()
                 } else {
                     zoomModel.zoomIn()
@@ -176,93 +168,107 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
 
     private inner class ImageZoomModelImpl : ImageZoomModel {
         private var myZoomLevelChanged = false
-        override fun getZoomFactor(): Double {
-            val size = imageComponent.canvasSize
-            val image = imageComponent.document.value
-            return if (image != null) size.getWidth() / image.width.toDouble() else 0.0
-        }
+        private var zoomFactor = 1.0
+
+        override fun getZoomFactor(): Double = zoomFactor
 
         override fun setZoomFactor(zoomFactor: Double) {
-            // Change current size
-            val size = imageComponent.canvasSize
-            val image = imageComponent.document.value
-            if (image != null) {
-                size.setSize(image.width.toDouble() * zoomFactor, image.height.toDouble() * zoomFactor)
-                imageComponent.canvasSize = size
+            val oldZoomFactor = this.zoomFactor
+            if (oldZoomFactor != zoomFactor) {
+                this.zoomFactor = zoomFactor
+                updateImageComponentSize()
+                revalidate()
+                repaint()
+                myZoomLevelChanged = false
+                imageComponent.firePropertyChange("ImageEditor.zoomFactor", oldZoomFactor, zoomFactor)
             }
-            revalidate()
-            repaint()
-            myZoomLevelChanged = false
         }
 
         override fun fitZoomToWindow() {
-            TODO("Not yet implemented")
+            val image = imageComponent.document.value
+            val widthRatio = width.toDouble() / image.width
+            val heightRatio = height.toDouble() / image.height
+            val newZoomFactor = min(widthRatio, heightRatio)
+            setZoomFactor(newZoomFactor)
+            myZoomLevelChanged = false
         }
 
         private val minimumZoomFactor: Double
             get() {
-                val image = imageComponent.document.value
-                return if (image != null) 1.0 / image.width else 0.0
+                val bounds = imageComponent.document.bounds
+                val factor = bounds?.let { 1.0 / it.width } ?: 0.0
+                return max(factor, ImageZoomModel.MICRO_ZOOM_LIMIT)
             }
 
+        private val maximumZoomFactor: Double
+            get() = min(ImageZoomModel.MACRO_ZOOM_LIMIT, Double.MAX_VALUE)
+
         override fun zoomOut() {
-            val factor = zoomFactor
-            if (factor > 1.0) {
-                // Macro
-                zoomFactor = factor / 2.0
-            } else {
-                // Micro
-                val minFactor = minimumZoomFactor
-                val stepSize = (1.0 - minFactor) / ImageZoomModel.MICRO_ZOOM_LIMIT
-                val step = ceil((1.0 - factor) / stepSize).toInt()
-                zoomFactor = 1.0 - stepSize * (step + 1)
-            }
+            setZoomFactor(getNextZoomOut())
             myZoomLevelChanged = true
         }
 
         override fun zoomIn() {
-            val factor = zoomFactor
-            if (factor >= 1.0) {
-                // Macro
-                zoomFactor = factor * 2.0
-            } else {
-                // Micro
-                val minFactor = minimumZoomFactor
-                val stepSize = (1.0 - minFactor) / ImageZoomModel.MICRO_ZOOM_LIMIT
-                val step = (1.0 - factor) / stepSize
-                zoomFactor = 1.0 - stepSize * (step - 1)
-            }
+            setZoomFactor(getNextZoomIn())
             myZoomLevelChanged = true
         }
 
-        override fun setZoomLevelChanged(p0: Boolean) {
-            TODO("Not yet implemented")
+        private fun getNextZoomOut(): Double {
+            var factor = zoomFactor
+            if (factor > 1.0) {
+                factor /= 2.0
+                factor = max(factor, 1.0)
+            } else {
+                factor /= 1.5
+            }
+            return max(factor, minimumZoomFactor)
+        }
+
+        private fun getNextZoomIn(): Double {
+            var factor = zoomFactor
+            if (factor >= 1.0) {
+                factor *= 2.0
+            } else {
+                factor *= 1.5
+                factor = min(factor, 1.0)
+            }
+            return min(factor, maximumZoomFactor)
+        }
+
+        override fun setZoomLevelChanged(value: Boolean) {
+            myZoomLevelChanged = value
         }
 
         override fun canZoomOut(): Boolean {
-            val factor = zoomFactor
-            val minFactor = minimumZoomFactor
-            val stepSize = (1.0 - minFactor) / ImageZoomModel.MICRO_ZOOM_LIMIT
-            val step = ceil((1.0 - factor) / stepSize)
-            return step < ImageZoomModel.MICRO_ZOOM_LIMIT
+            return zoomFactor - 1e-14 > minimumZoomFactor
         }
 
         override fun canZoomIn(): Boolean {
-            val zoomFactor = zoomFactor
-            return zoomFactor < ImageZoomModel.MACRO_ZOOM_LIMIT
+            return zoomFactor < maximumZoomFactor
         }
 
         override fun isZoomLevelChanged(): Boolean {
             return myZoomLevelChanged
         }
+
+        private fun updateImageComponentSize() {
+            val image = imageComponent.document.value
+            image?.let {
+                val newWidth = (it.width * zoomFactor).toInt()
+                val newHeight = (it.height * zoomFactor).toInt()
+                imageComponent.canvasSize = Dimension(newWidth, newHeight)
+            }
+        }
     }
 
+    // Don't know if needed
     private inner class FocusRequester : MouseAdapter() {
         override fun mousePressed(e: MouseEvent) {
             requestFocus()
         }
     }
 
+    // Right click context menu
     private class EditorMouseAdapter : PopupHandler() {
         override fun invokePopup(comp: Component, x: Int, y: Int) {
             // Single right click
@@ -326,5 +332,9 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
             }
             return myImage
         }
+    }
+
+    companion object {
+        private val LOG = Logger.getInstance(ImageEditorUI::class.java)
     }
 }
