@@ -34,6 +34,7 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.ScrollPaneConstants
 import javax.swing.SwingConstants
+import javax.swing.SwingUtilities
 import kotlin.math.max
 import kotlin.math.min
 
@@ -84,6 +85,10 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
         add(scrollPane, BorderLayout.CENTER)
 
         updateInfo()
+
+        SwingUtilities.invokeLater {
+            zoomModel.fitZoomToWindow()
+        }
     }
 
     private fun updateInfo() {
