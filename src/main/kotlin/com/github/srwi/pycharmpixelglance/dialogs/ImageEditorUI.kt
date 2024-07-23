@@ -7,6 +7,8 @@ import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.DataProvider
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.ide.CopyPasteManager
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.IdeBorderFactory
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
@@ -24,28 +26,29 @@ import java.awt.*
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
 import java.awt.datatransfer.UnsupportedFlavorException
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
 import java.awt.event.MouseWheelEvent
 import java.awt.event.MouseWheelListener
 import java.awt.image.BufferedImage
 import java.io.IOException
-import javax.swing.JLabel
-import javax.swing.JPanel
-import javax.swing.ScrollPaneConstants
-import javax.swing.SwingConstants
-import javax.swing.SwingUtilities
+import javax.swing.*
 import kotlin.math.max
 import kotlin.math.min
 
-internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: EditorOptions) : JPanel(), DataProvider, CopyProvider {
+internal class ImageEditorUI(
+    project: Project,
+    private val editor: ImageEditor,
+    editorOptions: EditorOptions
+) : DialogWrapper(project), DataProvider, CopyProvider {
+
     val zoomModel: ImageZoomModel = ImageZoomModelImpl()
     val imageComponent: ImageComponent = ImageComponent()
     private val wheelAdapter = ImageWheelAdapter()
-    private val infoLabel: JLabel
+    private val infoLabel: JLabel = JLabel()
 
     init {
-        // Set options
+        title = "Image Editor"
+        init()
+
         val chessboardOptions = editorOptions.transparencyChessboardOptions
         val gridOptions = editorOptions.gridOptions
         imageComponent.transparencyChessboardCellSize = chessboardOptions.cellSize
@@ -54,41 +57,39 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
         imageComponent.gridLineZoomFactor = gridOptions.lineZoomFactor
         imageComponent.gridLineSpan = gridOptions.lineSpan
         imageComponent.gridLineColor = gridOptions.lineColor
-        // Create layout
-        val view = ImageContainerPane(imageComponent)
-//        view.addMouseListener(EditorMouseAdapter())  // right click menu
-        view.addMouseListener(FocusRequester())
-        val scrollPane = ScrollPaneFactory.createScrollPane(view)
-        scrollPane.verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED
-        scrollPane.horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
-        // Zoom by wheel listener
-        scrollPane.addMouseWheelListener(wheelAdapter)
-        // Construct UI
-        layout = BorderLayout()
-
-        val actionManager = ActionManager.getInstance()
-        val actionGroup = actionManager.getAction(ImageEditorActions.GROUP_TOOLBAR) as ActionGroup
-        val actionToolbar = actionManager.createActionToolbar(
-            ImageEditorActions.ACTION_PLACE, actionGroup, true
-        )
-        actionToolbar.targetComponent = this
-        val toolbarPanel = actionToolbar.component
-        toolbarPanel.addMouseListener(FocusRequester())
-
-        val topPanel = JPanel(BorderLayout())
-        topPanel.add(toolbarPanel, BorderLayout.WEST)
-        infoLabel = JLabel(null as String?, SwingConstants.RIGHT)
-        infoLabel.border = IdeBorderFactory.createEmptyBorder(0, 0, 0, 2)
-        topPanel.add(infoLabel, BorderLayout.EAST)
-
-        add(topPanel, BorderLayout.NORTH)
-        add(scrollPane, BorderLayout.CENTER)
 
         updateInfo()
 
         SwingUtilities.invokeLater {
             zoomModel.fitZoomToWindow()
         }
+    }
+
+    override fun createCenterPanel(): JComponent {
+        val view = ImageContainerPane(imageComponent)
+        val scrollPane = ScrollPaneFactory.createScrollPane(view)
+        scrollPane.verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED
+        scrollPane.horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
+        scrollPane.addMouseWheelListener(wheelAdapter)
+
+        return scrollPane
+    }
+
+    override fun createNorthPanel(): JComponent {
+        val actionManager = ActionManager.getInstance()
+        val actionGroup = actionManager.getAction(ImageEditorActions.GROUP_TOOLBAR) as ActionGroup
+        val actionToolbar = actionManager.createActionToolbar(
+            ImageEditorActions.ACTION_PLACE, actionGroup, true
+        )
+        actionToolbar.targetComponent = contentPane as JComponent?
+        val toolbarPanel = actionToolbar.component
+
+        val topPanel = JPanel(BorderLayout())
+        topPanel.add(toolbarPanel, BorderLayout.WEST)
+        infoLabel.border = IdeBorderFactory.createEmptyBorder(0, 0, 0, 2)
+        topPanel.add(infoLabel, BorderLayout.EAST)
+
+        return topPanel
     }
 
     private fun updateInfo() {
@@ -109,10 +110,11 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
 //        }
     }
 
-    fun dispose() {
+    public override fun dispose() {
         imageComponent.removeMouseWheelListener(wheelAdapter)
-        removeAll()
+        super.dispose()
     }
+
 
     private inner class ImageContainerPane(private val imageComponent: ImageComponent) : JBLayeredPane() {
         init {
@@ -182,8 +184,8 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
             if (oldZoomFactor != zoomFactor) {
                 this.zoomFactor = zoomFactor
                 updateImageComponentSize()
-                revalidate()
-                repaint()
+                imageComponent.revalidate()
+                imageComponent.repaint()
                 myZoomLevelChanged = false
                 imageComponent.firePropertyChange("ImageEditor.zoomFactor", oldZoomFactor, zoomFactor)
             }
@@ -191,8 +193,8 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
 
         override fun fitZoomToWindow() {
             val image = imageComponent.document.value
-            val widthRatio = width.toDouble() / image.width
-            val heightRatio = height.toDouble() / image.height
+            val widthRatio = contentPane.width.toDouble() / image.width
+            val heightRatio = contentPane.height.toDouble() / image.height
             val newZoomFactor = min(widthRatio, heightRatio)
             setZoomFactor(newZoomFactor)
             myZoomLevelChanged = false
@@ -266,13 +268,6 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
         }
     }
 
-    // Don't know if needed
-    private inner class FocusRequester : MouseAdapter() {
-        override fun mousePressed(e: MouseEvent) {
-            requestFocus()
-        }
-    }
-
     // Right click context menu
     private class EditorMouseAdapter : PopupHandler() {
         override fun invokePopup(comp: Component, x: Int, y: Int) {
@@ -290,20 +285,6 @@ internal class ImageEditorUI(private val editor: ImageEditor, editorOptions: Edi
         if (ImageComponentDecorator.DATA_KEY.`is`(dataId)) {
             return editor
         }
-//        else if (CommonDataKeys.PROJECT.`is`(dataId)) {
-//            return editor.project
-//        } else if (CommonDataKeys.VIRTUAL_FILE.`is`(dataId)) {
-//            return editor.file
-//        } else if (CommonDataKeys.VIRTUAL_FILE_ARRAY.`is`(dataId)) {
-//            return arrayOf(editor.file)
-//        } else if (CommonDataKeys.PSI_FILE.`is`(dataId)) {
-//            return getData(CommonDataKeys.PSI_ELEMENT.name)
-//        } else if (CommonDataKeys.PSI_ELEMENT.`is`(dataId)) {
-//            val file = editor.file
-//            return if (file != null && file.isValid) PsiManager.getInstance(editor.project).findFile(file) else null
-//        } else if (LangDataKeys.PSI_ELEMENT_ARRAY.`is`(dataId)) {
-//            return arrayOf(getData(CommonDataKeys.PSI_ELEMENT.name) as PsiElement?)
-//        }
         return null
     }
 

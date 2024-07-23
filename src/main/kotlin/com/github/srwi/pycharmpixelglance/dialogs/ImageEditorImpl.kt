@@ -16,57 +16,48 @@ import java.beans.PropertyChangeListener
 import javax.swing.JComponent
 import kotlin.math.ceil
 
-
-// TODO: make image watchable and react to image changes
 internal class ImageEditorImpl(private val project: Project, image: BufferedImage) : ImageEditor, Disposable {
     private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
     private val editorUI: ImageEditorUI
     private var disposed = false
 
     init {
-        // Options
         val options = OptionsManager.getInstance().options
-        editorUI = ImageEditorUI(this, options.editorOptions)
+        editorUI = ImageEditorUI(project, this, options.editorOptions)
         options.addPropertyChangeListener(optionsChangeListener, this)
-        setValue(image)
+        setImage(image)
     }
 
-    private fun setValue(image: BufferedImage) {
+    private fun setImage(image: BufferedImage) {
         val document: ImageDocument = editorUI.imageComponent.document
         try {
             val previousImage = document.value
             document.value = image
-//            document.format = IfsUtil.getFormat(file)
             val zoomModel = zoomModel
             if (previousImage == null || !zoomModel.isZoomLevelChanged) {
-                // Set smart zooming behaviour on open
                 val options = OptionsManager.getInstance().options
                 val zoomOptions = options.editorOptions.zoomOptions
-                // Open as actual size
                 zoomModel.zoomFactor = 1.0
                 if (zoomOptions.isSmartZooming) {
                     val prefferedSize = zoomOptions.prefferedSize
                     if (prefferedSize.width > image.width && prefferedSize.height > image.height) {
-                        // Resize to preffered size
-                        // Calculate zoom factor
                         val factor = (prefferedSize.getWidth() / image.width.toDouble() + prefferedSize.getHeight() / image.height.toDouble()) / 2.0
                         zoomModel.zoomFactor = ceil(factor)
                     }
                 }
             }
         } catch (e: Exception) {
-            // Error loading image file
             document.value = null
         }
     }
 
     override fun isValid(): Boolean {
-        val document: ImageDocument = editorUI.imageComponent.getDocument()
+        val document: ImageDocument = editorUI.imageComponent.document
         return document.value != null
     }
 
     override fun getComponent(): JComponent {
-        return editorUI
+        return editorUI.contentPane as JComponent
     }
 
     override fun getContentComponent(): JComponent {
@@ -74,8 +65,7 @@ internal class ImageEditorImpl(private val project: Project, image: BufferedImag
     }
 
     override fun getFile(): VirtualFile {
-        // TODO: this should never be called because we are using BufferedImage instead of VirtualFile
-        return file
+        throw UnsupportedOperationException("getFile() is not supported for BufferedImage-based editor")
     }
 
     override fun getProject(): Project {
@@ -83,30 +73,29 @@ internal class ImageEditorImpl(private val project: Project, image: BufferedImag
     }
 
     override fun getDocument(): ImageDocument {
-        return editorUI.imageComponent.getDocument()
+        return editorUI.imageComponent.document
     }
 
     override fun setTransparencyChessboardVisible(visible: Boolean) {
-        editorUI.imageComponent.setTransparencyChessboardVisible(visible)
-        editorUI.repaint()
+        editorUI.imageComponent.isTransparencyChessboardVisible = visible
+        editorUI.contentPane.repaint()
     }
 
     override fun isTransparencyChessboardVisible(): Boolean {
-        return editorUI.imageComponent.isTransparencyChessboardVisible()
+        return editorUI.imageComponent.isTransparencyChessboardVisible
     }
 
     override fun isEnabledForActionPlace(place: String): Boolean {
-        // Disable for thumbnails action
         return ThumbnailViewActions.ACTION_PLACE != place
     }
 
     override fun setGridVisible(visible: Boolean) {
-        editorUI.imageComponent.setGridVisible(visible)
-        editorUI.repaint()
+        editorUI.imageComponent.isGridVisible = visible
+        editorUI.contentPane.repaint()
     }
 
     override fun isGridVisible(): Boolean {
-        return editorUI.imageComponent.isGridVisible()
+        return editorUI.imageComponent.isGridVisible
     }
 
     override fun isDisposed(): Boolean {
@@ -120,6 +109,10 @@ internal class ImageEditorImpl(private val project: Project, image: BufferedImag
     override fun dispose() {
         editorUI.dispose()
         disposed = true
+    }
+
+    fun show() {
+        editorUI.show()
     }
 
     private inner class OptionsChangeListener : PropertyChangeListener {

@@ -4,7 +4,7 @@ import com.github.srwi.pycharmpixelglance.data.NumpyImageProvider
 import com.github.srwi.pycharmpixelglance.data.PillowImageProvider
 import com.github.srwi.pycharmpixelglance.data.PytorchImageProvider
 import com.github.srwi.pycharmpixelglance.data.TensorflowImageProvider
-import com.github.srwi.pycharmpixelglance.dialogs.ImageViewerDialog
+import com.github.srwi.pycharmpixelglance.dialogs.ImageEditorImpl
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.xdebugger.impl.ui.tree.actions.XDebuggerTreeActionBase
@@ -24,11 +24,9 @@ class ViewImageAction : AnAction() {
             typeQualifier.startsWith("tensorflow") -> TensorflowImageProvider()
             else -> throw IllegalArgumentException("Unsupported type qualifier: $typeQualifier")
         }
-
         val displayableData = imageProvider.getImageByVariableName(frameAccessor, value.name)
         val image = displayableData.getBuffer()
-
-        val viewerDialog = ImageViewerDialog(project, image)
-        viewerDialog.showDialog()
+        val viewer = ImageEditorImpl(project, image)
+        viewer.show()
     }
 }
