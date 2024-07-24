@@ -1,7 +1,6 @@
 package com.github.srwi.pycharmpixelglance.dialogs
 
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.project.Project
 import org.intellij.images.editor.ImageDocument
 import org.intellij.images.editor.ImageZoomModel
 import org.intellij.images.options.Options
@@ -14,13 +13,13 @@ import java.beans.PropertyChangeEvent
 import java.beans.PropertyChangeListener
 import kotlin.math.ceil
 
-internal class ImageEditorImpl(private val project: Project, image: BufferedImage) : ImageComponentDecorator, Disposable {
+internal class ImageEditor(image: BufferedImage) : ImageComponentDecorator, Disposable {
     private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
-    private val editorUI: ImageEditorUI
+    private val editorUI: ImageEditorDialog
 
     init {
         val options = OptionsManager.getInstance().options
-        editorUI = ImageEditorUI(project, this, options.editorOptions)
+        editorUI = ImageEditorDialog(this, options.editorOptions)
         options.addPropertyChangeListener(optionsChangeListener, this)
         setImage(image)
     }

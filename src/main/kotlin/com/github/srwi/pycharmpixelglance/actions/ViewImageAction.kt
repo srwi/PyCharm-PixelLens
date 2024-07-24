@@ -4,7 +4,7 @@ import com.github.srwi.pycharmpixelglance.data.NumpyImageProvider
 import com.github.srwi.pycharmpixelglance.data.PillowImageProvider
 import com.github.srwi.pycharmpixelglance.data.PytorchImageProvider
 import com.github.srwi.pycharmpixelglance.data.TensorflowImageProvider
-import com.github.srwi.pycharmpixelglance.dialogs.ImageEditorImpl
+import com.github.srwi.pycharmpixelglance.dialogs.ImageEditor
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.xdebugger.impl.ui.tree.actions.XDebuggerTreeActionBase
@@ -26,7 +26,7 @@ class ViewImageAction : AnAction() {
         }
         val displayableData = imageProvider.getImageByVariableName(frameAccessor, value.name)
         val image = displayableData.getBuffer()
-        val viewer = ImageEditorImpl(project, image)
+        val viewer = ImageEditor(image)
         viewer.show()
     }
 }

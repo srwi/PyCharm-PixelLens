@@ -8,8 +8,6 @@ import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DataProvider
 import com.intellij.openapi.actionSystem.DefaultActionGroup
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.IdeBorderFactory
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
@@ -35,13 +33,11 @@ import java.awt.event.MouseWheelListener
 import javax.swing.*
 import kotlin.math.max
 import kotlin.math.min
-import com.intellij.ide.util.PropertiesComponent
 
-internal class ImageEditorUI(
-    project: Project,
+internal class ImageEditorDialog(
     private val editor: ImageComponentDecorator,
     editorOptions: EditorOptions
-) : DialogWrapper(project), DataProvider {
+) : PersistentDialogWrapper(), DataProvider {
 
     val zoomModel: ImageZoomModel = ImageZoomModelImpl()
     val imageComponent: ImageComponent = ImageComponent()
@@ -49,18 +45,8 @@ internal class ImageEditorUI(
     private val wheelAdapter = ImageWheelAdapter()
     private val infoLabel: JLabel = JLabel()
 
-    companion object {
-        private const val WINDOW_WIDTH_KEY = "ImageEditorUI.WindowWidth"
-        private const val WINDOW_HEIGHT_KEY = "ImageEditorUI.WindowHeight"
-        private const val DEFAULT_WIDTH = 800
-        private const val DEFAULT_HEIGHT = 600
-    }
-
     init {
         title = "Image Editor"
-
-        val size = loadWindowSize()
-        setSize(size.width, size.height)
 
         init()
 
@@ -179,22 +165,8 @@ internal class ImageEditorUI(
     }
 
     public override fun dispose() {
-        saveWindowSize(size)
         imageComponent.removeMouseWheelListener(wheelAdapter)
         super.dispose()
-    }
-
-    private fun loadWindowSize(): Dimension {
-        val properties = PropertiesComponent.getInstance()
-        val width = properties.getInt(WINDOW_WIDTH_KEY, DEFAULT_WIDTH)
-        val height = properties.getInt(WINDOW_HEIGHT_KEY, DEFAULT_HEIGHT)
-        return Dimension(width, height)
-    }
-
-    private fun saveWindowSize(size: Dimension) {
-        val properties = PropertiesComponent.getInstance()
-        properties.setValue(WINDOW_WIDTH_KEY, size.width, DEFAULT_WIDTH)
-        properties.setValue(WINDOW_HEIGHT_KEY, size.height, DEFAULT_HEIGHT)
     }
 
     private inner class ImageContainerPane(private val imageComponent: ImageComponent) : JBLayeredPane() {
