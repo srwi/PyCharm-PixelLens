@@ -2,24 +2,21 @@ package com.github.srwi.pycharmpixelglance.dialogs
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VirtualFile
 import org.intellij.images.editor.ImageDocument
-import org.intellij.images.editor.ImageEditor
 import org.intellij.images.editor.ImageZoomModel
 import org.intellij.images.options.Options
 import org.intellij.images.options.OptionsManager
 import org.intellij.images.thumbnail.actionSystem.ThumbnailViewActions
 import org.intellij.images.ui.ImageComponent
+import org.intellij.images.ui.ImageComponentDecorator
 import java.awt.image.BufferedImage
 import java.beans.PropertyChangeEvent
 import java.beans.PropertyChangeListener
-import javax.swing.JComponent
 import kotlin.math.ceil
 
-internal class ImageEditorImpl(private val project: Project, image: BufferedImage) : ImageEditor, Disposable {
+internal class ImageEditorImpl(private val project: Project, image: BufferedImage) : ImageComponentDecorator, Disposable {
     private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
     private val editorUI: ImageEditorUI
-    private var disposed = false
 
     init {
         val options = OptionsManager.getInstance().options
@@ -51,31 +48,6 @@ internal class ImageEditorImpl(private val project: Project, image: BufferedImag
         }
     }
 
-    override fun isValid(): Boolean {
-        val document: ImageDocument = editorUI.imageComponent.document
-        return document.value != null
-    }
-
-    override fun getComponent(): JComponent {
-        return editorUI.contentPane as JComponent
-    }
-
-    override fun getContentComponent(): JComponent {
-        return editorUI.imageComponent
-    }
-
-    override fun getFile(): VirtualFile {
-        throw UnsupportedOperationException("getFile() is not supported for BufferedImage-based editor")
-    }
-
-    override fun getProject(): Project {
-        return project
-    }
-
-    override fun getDocument(): ImageDocument {
-        return editorUI.imageComponent.document
-    }
-
     override fun setTransparencyChessboardVisible(visible: Boolean) {
         editorUI.imageComponent.isTransparencyChessboardVisible = visible
         editorUI.contentPane.repaint()
@@ -98,17 +70,12 @@ internal class ImageEditorImpl(private val project: Project, image: BufferedImag
         return editorUI.imageComponent.isGridVisible
     }
 
-    override fun isDisposed(): Boolean {
-        return disposed
-    }
-
     override fun getZoomModel(): ImageZoomModel {
         return editorUI.zoomModel
     }
 
     override fun dispose() {
         editorUI.dispose()
-        disposed = true
     }
 
     fun show() {

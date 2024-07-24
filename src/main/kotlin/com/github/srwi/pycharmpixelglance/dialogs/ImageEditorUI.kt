@@ -1,12 +1,13 @@
 package com.github.srwi.pycharmpixelglance.dialogs
 
-import com.intellij.ide.CopyProvider
+import com.github.srwi.pycharmpixelglance.actions.CopyToClipboardAction
+import com.github.srwi.pycharmpixelglance.actions.FitZoomToWindowAction
+import com.github.srwi.pycharmpixelglance.actions.SaveAsPngAction
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.DataProvider
-import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.ide.CopyPasteManager
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.IdeBorderFactory
@@ -14,39 +15,53 @@ import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.components.JBLayeredPane
 import com.intellij.ui.components.Magnificator
-import com.intellij.util.ui.UIUtil
-import org.intellij.images.editor.ImageEditor
+import org.intellij.images.actions.ToggleTransparencyChessboardAction
 import org.intellij.images.editor.ImageZoomModel
 import org.intellij.images.editor.actionSystem.ImageEditorActions
+import org.intellij.images.editor.actions.ActualSizeAction
+import org.intellij.images.editor.actions.ToggleGridAction
+import org.intellij.images.editor.actions.ZoomInAction
+import org.intellij.images.editor.actions.ZoomOutAction
 import org.intellij.images.options.EditorOptions
 import org.intellij.images.options.OptionsManager
 import org.intellij.images.ui.ImageComponent
 import org.intellij.images.ui.ImageComponentDecorator
-import java.awt.*
-import java.awt.datatransfer.DataFlavor
-import java.awt.datatransfer.Transferable
-import java.awt.datatransfer.UnsupportedFlavorException
+import java.awt.BorderLayout
+import java.awt.Component
+import java.awt.Dimension
+import java.awt.Point
 import java.awt.event.MouseWheelEvent
 import java.awt.event.MouseWheelListener
-import java.awt.image.BufferedImage
-import java.io.IOException
 import javax.swing.*
 import kotlin.math.max
 import kotlin.math.min
+import com.intellij.ide.util.PropertiesComponent
 
 internal class ImageEditorUI(
     project: Project,
-    private val editor: ImageEditor,
+    private val editor: ImageComponentDecorator,
     editorOptions: EditorOptions
-) : DialogWrapper(project), DataProvider, CopyProvider {
+) : DialogWrapper(project), DataProvider {
 
     val zoomModel: ImageZoomModel = ImageZoomModelImpl()
     val imageComponent: ImageComponent = ImageComponent()
+    private var scrollPane: JScrollPane = JScrollPane()
     private val wheelAdapter = ImageWheelAdapter()
     private val infoLabel: JLabel = JLabel()
 
+    companion object {
+        private const val WINDOW_WIDTH_KEY = "ImageEditorUI.WindowWidth"
+        private const val WINDOW_HEIGHT_KEY = "ImageEditorUI.WindowHeight"
+        private const val DEFAULT_WIDTH = 800
+        private const val DEFAULT_HEIGHT = 600
+    }
+
     init {
         title = "Image Editor"
+
+        val size = loadWindowSize()
+        setSize(size.width, size.height)
+
         init()
 
         val chessboardOptions = editorOptions.transparencyChessboardOptions
@@ -57,6 +72,8 @@ internal class ImageEditorUI(
         imageComponent.gridLineZoomFactor = gridOptions.lineZoomFactor
         imageComponent.gridLineSpan = gridOptions.lineSpan
         imageComponent.gridLineColor = gridOptions.lineColor
+        imageComponent.isBorderVisible = false
+        imageComponent.addMouseListener(EditorMouseAdapter())
 
         updateInfo()
 
@@ -67,7 +84,8 @@ internal class ImageEditorUI(
 
     override fun createCenterPanel(): JComponent {
         val view = ImageContainerPane(imageComponent)
-        val scrollPane = ScrollPaneFactory.createScrollPane(view)
+        scrollPane = ScrollPaneFactory.createScrollPane(view)
+        scrollPane.border = null
         scrollPane.verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED
         scrollPane.horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
         scrollPane.addMouseWheelListener(wheelAdapter)
@@ -77,11 +95,10 @@ internal class ImageEditorUI(
 
     override fun createNorthPanel(): JComponent {
         val actionManager = ActionManager.getInstance()
-        val actionGroup = actionManager.getAction(ImageEditorActions.GROUP_TOOLBAR) as ActionGroup
+        val actionGroup = createCustomActionGroup()
         val actionToolbar = actionManager.createActionToolbar(
             ImageEditorActions.ACTION_PLACE, actionGroup, true
         )
-        actionToolbar.targetComponent = contentPane as JComponent?
         val toolbarPanel = actionToolbar.component
 
         val topPanel = JPanel(BorderLayout())
@@ -90,6 +107,57 @@ internal class ImageEditorUI(
         topPanel.add(infoLabel, BorderLayout.EAST)
 
         return topPanel
+    }
+
+    override fun createSouthPanel(): JComponent? {
+        return null
+    }
+
+    private fun createCustomActionGroup(): ActionGroup {
+        return DefaultActionGroup().apply {
+            add(SaveAsPngAction { imageComponent.document.value }.apply {
+                templatePresentation.icon = AllIcons.Actions.MenuSaveall
+                templatePresentation.text = "Save Image"
+                templatePresentation.description = "Save image to file"
+            })
+            add(CopyToClipboardAction { imageComponent.document.value }.apply {
+                templatePresentation.icon = AllIcons.Actions.Copy
+                templatePresentation.text = "Copy Image"
+                templatePresentation.description = "Copy image to clipboard"
+            })
+            addSeparator()
+            add(ToggleTransparencyChessboardAction().apply {
+                templatePresentation.icon = AllIcons.Gutter.Colors
+                templatePresentation.text = "Toggle Chessboard"
+                templatePresentation.description = "Toggle transparency chessboard"
+            })
+            add(ToggleGridAction().apply {
+                templatePresentation.icon = AllIcons.Graph.Grid
+                templatePresentation.text = "Toggle Grid"
+                templatePresentation.description = "Toggle pixel grid"
+            })
+            addSeparator()
+            add(ZoomInAction().apply {
+                templatePresentation.icon = AllIcons.General.ZoomIn
+                templatePresentation.text = "Zoom In"
+                templatePresentation.description = "Zoom in"
+            })
+            add(ZoomOutAction().apply {
+                templatePresentation.icon = AllIcons.General.ZoomOut
+                templatePresentation.text = "Zoom Out"
+                templatePresentation.description = "Zoom out"
+            })
+            add(ActualSizeAction().apply {
+                templatePresentation.icon = AllIcons.General.ActualZoom
+                templatePresentation.text = "Reset Zoom"
+                templatePresentation.description = "Reset zoom to original size"
+            })
+            add(FitZoomToWindowAction().apply {
+                templatePresentation.icon = AllIcons.General.FitContent
+                templatePresentation.text = "Fit to Window"
+                templatePresentation.description = "Fit image to window"
+            })
+        }
     }
 
     private fun updateInfo() {
@@ -111,10 +179,23 @@ internal class ImageEditorUI(
     }
 
     public override fun dispose() {
+        saveWindowSize(size)
         imageComponent.removeMouseWheelListener(wheelAdapter)
         super.dispose()
     }
 
+    private fun loadWindowSize(): Dimension {
+        val properties = PropertiesComponent.getInstance()
+        val width = properties.getInt(WINDOW_WIDTH_KEY, DEFAULT_WIDTH)
+        val height = properties.getInt(WINDOW_HEIGHT_KEY, DEFAULT_HEIGHT)
+        return Dimension(width, height)
+    }
+
+    private fun saveWindowSize(size: Dimension) {
+        val properties = PropertiesComponent.getInstance()
+        properties.setValue(WINDOW_WIDTH_KEY, size.width, DEFAULT_WIDTH)
+        properties.setValue(WINDOW_HEIGHT_KEY, size.height, DEFAULT_HEIGHT)
+    }
 
     private inner class ImageContainerPane(private val imageComponent: ImageComponent) : JBLayeredPane() {
         init {
@@ -131,8 +212,7 @@ internal class ImageEditorUI(
             })
         }
 
-        private fun centerComponents() {
-            val bounds = bounds
+        private fun centerImageComponent() {
             val point = imageComponent.location
             point.x = (bounds.width - imageComponent.width) / 2
             point.y = (bounds.height - imageComponent.height) / 2
@@ -140,20 +220,12 @@ internal class ImageEditorUI(
         }
 
         override fun invalidate() {
-            centerComponents()
+            centerImageComponent()
             super.invalidate()
         }
 
         override fun getPreferredSize(): Dimension {
             return imageComponent.size
-        }
-
-        override fun paintComponent(g: Graphics) {
-            super.paintComponent(g)
-            if (UIUtil.isUnderDarcula()) {
-                g.color = UIUtil.getControlColor().brighter()
-                g.fillRect(0, 0, width, height)
-            }
         }
     }
 
@@ -192,9 +264,13 @@ internal class ImageEditorUI(
         }
 
         override fun fitZoomToWindow() {
-            val image = imageComponent.document.value
-            val widthRatio = contentPane.width.toDouble() / image.width
-            val heightRatio = contentPane.height.toDouble() / image.height
+            val image = imageComponent.document.value ?: return
+            val verticalScrollBarWidth = scrollPane.verticalScrollBar.preferredSize.width
+            val horizontalScrollBarHeight = scrollPane.horizontalScrollBar.preferredSize.height
+            val adjustedWidth = scrollPane.viewport.width - verticalScrollBarWidth
+            val adjustedHeight = scrollPane.viewport.height - horizontalScrollBarHeight
+            val widthRatio = adjustedWidth.toDouble() / image.width
+            val heightRatio = adjustedHeight.toDouble() / image.height
             val newZoomFactor = min(widthRatio, heightRatio)
             setZoomFactor(newZoomFactor)
             myZoomLevelChanged = false
@@ -268,15 +344,12 @@ internal class ImageEditorUI(
         }
     }
 
-    // Right click context menu
-    private class EditorMouseAdapter : PopupHandler() {
+    private inner class EditorMouseAdapter : PopupHandler() {
         override fun invokePopup(comp: Component, x: Int, y: Int) {
-            // Single right click
             val actionManager = ActionManager.getInstance()
-            val actionGroup = actionManager.getAction(ImageEditorActions.GROUP_POPUP) as ActionGroup  // TODO: should create same action group as toolbar
+            val actionGroup = createCustomActionGroup()
             val menu = actionManager.createActionPopupMenu(ImageEditorActions.ACTION_PLACE, actionGroup)
             val popupMenu = menu.component
-            popupMenu.pack()
             popupMenu.show(comp, x, y)
         }
     }
@@ -286,41 +359,5 @@ internal class ImageEditorUI(
             return editor
         }
         return null
-    }
-
-    override fun performCopy(dataContext: DataContext) {
-        val document = imageComponent.document
-        val image = document.value
-        CopyPasteManager.getInstance().setContents(ImageTransferable(image))
-    }
-
-    override fun isCopyEnabled(dataContext: DataContext): Boolean {
-        return true
-    }
-
-    override fun isCopyVisible(dataContext: DataContext): Boolean {
-        return true
-    }
-
-    private class ImageTransferable(private val myImage: BufferedImage) : Transferable {
-        override fun getTransferDataFlavors(): Array<DataFlavor> {
-            return arrayOf(DataFlavor.imageFlavor)
-        }
-
-        override fun isDataFlavorSupported(dataFlavor: DataFlavor): Boolean {
-            return DataFlavor.imageFlavor.equals(dataFlavor)
-        }
-
-        @Throws(UnsupportedFlavorException::class, IOException::class)
-        override fun getTransferData(dataFlavor: DataFlavor): Any {
-            if (!DataFlavor.imageFlavor.equals(dataFlavor)) {
-                throw UnsupportedFlavorException(dataFlavor)
-            }
-            return myImage
-        }
-    }
-
-    companion object {
-        private val LOG = Logger.getInstance(ImageEditorUI::class.java)
     }
 }
