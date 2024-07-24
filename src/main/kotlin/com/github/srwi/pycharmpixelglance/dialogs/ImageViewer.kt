@@ -4,24 +4,26 @@ import com.github.srwi.pycharmpixelglance.actions.CopyToClipboardAction
 import com.github.srwi.pycharmpixelglance.actions.FitZoomToWindowAction
 import com.github.srwi.pycharmpixelglance.actions.SaveAsPngAction
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DataProvider
 import com.intellij.openapi.actionSystem.DefaultActionGroup
-import com.intellij.ui.IdeBorderFactory
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.components.JBLayeredPane
 import com.intellij.ui.components.Magnificator
 import org.intellij.images.actions.ToggleTransparencyChessboardAction
+import org.intellij.images.editor.ImageDocument
 import org.intellij.images.editor.ImageZoomModel
 import org.intellij.images.editor.actionSystem.ImageEditorActions
 import org.intellij.images.editor.actions.ActualSizeAction
 import org.intellij.images.editor.actions.ToggleGridAction
 import org.intellij.images.editor.actions.ZoomInAction
 import org.intellij.images.editor.actions.ZoomOutAction
-import org.intellij.images.options.EditorOptions
+import org.intellij.images.options.Options
 import org.intellij.images.options.OptionsManager
+import org.intellij.images.thumbnail.actionSystem.ThumbnailViewActions
 import org.intellij.images.ui.ImageComponent
 import org.intellij.images.ui.ImageComponentDecorator
 import java.awt.BorderLayout
@@ -30,16 +32,18 @@ import java.awt.Dimension
 import java.awt.Point
 import java.awt.event.MouseWheelEvent
 import java.awt.event.MouseWheelListener
+import java.awt.image.BufferedImage
+import java.beans.PropertyChangeEvent
+import java.beans.PropertyChangeListener
 import javax.swing.*
+import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 
-internal class ImageEditorDialog(
-    private val editor: ImageComponentDecorator,
-    editorOptions: EditorOptions
-) : PersistentDialogWrapper(), DataProvider {
+internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disposable, PersistentDialogWrapper(), DataProvider {
 
-    val zoomModel: ImageZoomModel = ImageZoomModelImpl()
+    private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
+    val internalZoomModel: ImageZoomModel = ImageZoomModelImpl()
     val imageComponent: ImageComponent = ImageComponent()
     private var scrollPane: JScrollPane = JScrollPane()
     private val wheelAdapter = ImageWheelAdapter()
@@ -48,8 +52,10 @@ internal class ImageEditorDialog(
     init {
         title = "Image Editor"
 
-        init()
+        val options = OptionsManager.getInstance().options
+        options.addPropertyChangeListener(optionsChangeListener, this)
 
+        val editorOptions = options.editorOptions
         val chessboardOptions = editorOptions.transparencyChessboardOptions
         val gridOptions = editorOptions.gridOptions
         imageComponent.transparencyChessboardCellSize = chessboardOptions.cellSize
@@ -61,10 +67,34 @@ internal class ImageEditorDialog(
         imageComponent.isBorderVisible = false
         imageComponent.addMouseListener(EditorMouseAdapter())
 
-        updateInfo()
+        init()
+
+        setImage(image)
 
         SwingUtilities.invokeLater {
-            zoomModel.fitZoomToWindow()
+            internalZoomModel.fitZoomToWindow()
+        }
+    }
+
+    private fun setImage(image: BufferedImage) {
+        val document: ImageDocument = imageComponent.document
+        try {
+            val previousImage = document.value
+            document.value = image
+            if (previousImage == null || !internalZoomModel.isZoomLevelChanged) {
+                val options = OptionsManager.getInstance().options
+                val zoomOptions = options.editorOptions.zoomOptions
+                internalZoomModel.zoomFactor = 1.0
+                if (zoomOptions.isSmartZooming) {
+                    val prefferedSize = zoomOptions.prefferedSize
+                    if (prefferedSize.width > image.width && prefferedSize.height > image.height) {
+                        val factor = (prefferedSize.getWidth() / image.width.toDouble() + prefferedSize.getHeight() / image.height.toDouble()) / 2.0
+                        internalZoomModel.zoomFactor = ceil(factor)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            document.value = null
         }
     }
 
@@ -89,7 +119,6 @@ internal class ImageEditorDialog(
 
         val topPanel = JPanel(BorderLayout())
         topPanel.add(toolbarPanel, BorderLayout.WEST)
-        infoLabel.border = IdeBorderFactory.createEmptyBorder(0, 0, 0, 2)
         topPanel.add(infoLabel, BorderLayout.EAST)
 
         return topPanel
@@ -146,25 +175,7 @@ internal class ImageEditorDialog(
         }
     }
 
-    private fun updateInfo() {
-        val document = imageComponent.document
-        val image = document.value
-//        if (image != null) {
-//            val colorModel = image.colorModel
-//            var format = document.format
-//            format = format?.uppercase() ?: ImagesBundle.message("unknown.format")
-//            val file = editor.file
-//            infoLabel.text = ImagesBundle.message(
-//                "image.info",
-//                image.width, image.height, format,
-//                colorModel.pixelSize, if (file != null) StringUtil.formatFileSize(file.length) else ""
-//            )
-//        } else {
-//            infoLabel.text = null
-//        }
-    }
-
-    public override fun dispose() {
+    override fun dispose() {
         imageComponent.removeMouseWheelListener(wheelAdapter)
         super.dispose()
     }
@@ -174,7 +185,7 @@ internal class ImageEditorDialog(
             add(imageComponent)
             putClientProperty(Magnificator.CLIENT_PROPERTY_KEY, Magnificator { scale, at ->
                 val locationBefore = imageComponent.location
-                val model = editor.zoomModel
+                val model = internalZoomModel
                 val factor = model.zoomFactor
                 model.zoomFactor = scale * factor
                 Point(
@@ -208,9 +219,9 @@ internal class ImageEditorDialog(
             val zoomOptions = editorOptions.zoomOptions
             if (zoomOptions.isWheelZooming && e.isControlDown) {
                 if (e.wheelRotation > 0) {
-                    zoomModel.zoomOut()
+                    internalZoomModel.zoomOut()
                 } else {
-                    zoomModel.zoomIn()
+                    internalZoomModel.zoomIn()
                 }
                 e.consume()
             }
@@ -218,7 +229,7 @@ internal class ImageEditorDialog(
     }
 
     private inner class ImageZoomModelImpl : ImageZoomModel {
-        private var myZoomLevelChanged = false
+        private var zoomLevelChanged = false
         private var zoomFactor = 1.0
 
         override fun getZoomFactor(): Double = zoomFactor
@@ -230,7 +241,7 @@ internal class ImageEditorDialog(
                 updateImageComponentSize()
                 imageComponent.revalidate()
                 imageComponent.repaint()
-                myZoomLevelChanged = false
+                zoomLevelChanged = false
                 imageComponent.firePropertyChange("ImageEditor.zoomFactor", oldZoomFactor, zoomFactor)
             }
         }
@@ -245,7 +256,7 @@ internal class ImageEditorDialog(
             val heightRatio = adjustedHeight.toDouble() / image.height
             val newZoomFactor = min(widthRatio, heightRatio)
             setZoomFactor(newZoomFactor)
-            myZoomLevelChanged = false
+            zoomLevelChanged = false
         }
 
         private val minimumZoomFactor: Double
@@ -260,12 +271,12 @@ internal class ImageEditorDialog(
 
         override fun zoomOut() {
             setZoomFactor(getNextZoomOut())
-            myZoomLevelChanged = true
+            zoomLevelChanged = true
         }
 
         override fun zoomIn() {
             setZoomFactor(getNextZoomIn())
-            myZoomLevelChanged = true
+            zoomLevelChanged = true
         }
 
         private fun getNextZoomOut(): Double {
@@ -291,7 +302,7 @@ internal class ImageEditorDialog(
         }
 
         override fun setZoomLevelChanged(value: Boolean) {
-            myZoomLevelChanged = value
+            zoomLevelChanged = value
         }
 
         override fun canZoomOut(): Boolean {
@@ -303,7 +314,7 @@ internal class ImageEditorDialog(
         }
 
         override fun isZoomLevelChanged(): Boolean {
-            return myZoomLevelChanged
+            return zoomLevelChanged
         }
 
         private fun updateImageComponentSize() {
@@ -328,8 +339,49 @@ internal class ImageEditorDialog(
 
     override fun getData(dataId: String): Any? {
         if (ImageComponentDecorator.DATA_KEY.`is`(dataId)) {
-            return editor
+            return this
         }
         return null
+    }
+
+    override fun setTransparencyChessboardVisible(visible: Boolean) {
+        imageComponent.isTransparencyChessboardVisible = visible
+        contentPane.repaint()
+    }
+
+    override fun isTransparencyChessboardVisible(): Boolean {
+        return imageComponent.isTransparencyChessboardVisible
+    }
+
+    override fun isEnabledForActionPlace(place: String): Boolean {
+        return ThumbnailViewActions.ACTION_PLACE != place
+    }
+
+    override fun setGridVisible(visible: Boolean) {
+        imageComponent.isGridVisible = visible
+        contentPane.repaint()
+    }
+
+    override fun isGridVisible(): Boolean {
+        return imageComponent.isGridVisible
+    }
+
+    override fun getZoomModel(): ImageZoomModel {
+        return internalZoomModel
+    }
+
+    private inner class OptionsChangeListener : PropertyChangeListener {
+        override fun propertyChange(evt: PropertyChangeEvent) {
+            val options = evt.source as Options
+            val editorOptions = options.editorOptions
+            val chessboardOptions = editorOptions.transparencyChessboardOptions
+            val gridOptions = editorOptions.gridOptions
+            imageComponent.transparencyChessboardCellSize = chessboardOptions.cellSize
+            imageComponent.transparencyChessboardWhiteColor = chessboardOptions.whiteColor
+            imageComponent.setTransparencyChessboardBlankColor(chessboardOptions.blackColor)
+            imageComponent.gridLineZoomFactor = gridOptions.lineZoomFactor
+            imageComponent.gridLineSpan = gridOptions.lineSpan
+            imageComponent.gridLineColor = gridOptions.lineColor
+        }
     }
 }
