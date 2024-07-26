@@ -1,15 +1,14 @@
 package com.github.srwi.pycharmpixelglance.actions
 
-import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.ide.CopyPasteManager
-import com.intellij.openapi.project.DumbAware
+import com.intellij.openapi.project.DumbAwareAction
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
 import java.awt.datatransfer.UnsupportedFlavorException
 import java.awt.image.BufferedImage
 
-class CopyToClipboardAction(private val getImage: () -> BufferedImage?) : AnAction(), DumbAware {
+class CopyToClipboardAction(private val getImage: () -> BufferedImage?) : DumbAwareAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val image = getImage() ?: return
         val transferable = object : Transferable {

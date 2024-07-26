@@ -19,7 +19,7 @@ data class Metadata(val shape: List<Int>, val dtype: String)
 data class Payload(val imageData: String, val metadata: Metadata)
 
 abstract class ImageProvider {
-    fun getImageByVariableName(frameAccessor: PyFrameAccessor, name: String) : DisplayableData {
+    fun getDataByVariableName(frameAccessor: PyFrameAccessor, name: String) : DisplayableData {
         val payload = getPayload(frameAccessor, name)
         val image = processImageData(payload)
         return image

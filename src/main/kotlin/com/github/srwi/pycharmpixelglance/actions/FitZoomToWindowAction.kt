@@ -2,14 +2,12 @@ package com.github.srwi.pycharmpixelglance.actions
 
 import com.github.srwi.pycharmpixelglance.dialogs.ImageViewer
 import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.project.DumbAwareAction
 import org.intellij.images.editor.actionSystem.ImageEditorActionUtil
 import org.intellij.images.options.OptionsManager
-import org.intellij.images.ui.ImageComponentDecorator
-import javax.swing.JScrollPane
 
-internal class FitZoomToWindowAction : AnAction() {
+internal class FitZoomToWindowAction : DumbAwareAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {

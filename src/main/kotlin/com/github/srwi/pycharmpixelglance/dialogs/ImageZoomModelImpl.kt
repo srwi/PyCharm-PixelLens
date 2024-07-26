@@ -44,7 +44,7 @@ class ImageZoomModelImpl(private val imageComponent: ImageComponent) : ImageZoom
         zoomLevelChanged = false
     }
 
-    fun smartZoom(scrollPane: JScrollPane) {
+    fun smartZoom(viewportWidth: Int, viewportHeight: Int) {
         val image = imageComponent.document.value ?: return
         val options = OptionsManager.getInstance().options
         val zoomOptions = options.editorOptions.zoomOptions
@@ -55,7 +55,7 @@ class ImageZoomModelImpl(private val imageComponent: ImageComponent) : ImageZoom
                 setZoomFactor(ceil(factor))
                 zoomLevelChanged = true
                 return
-            } else if (image.width > scrollPane.viewport.width || image.height > scrollPane.viewport.height) {
+            } else if (image.width > viewportWidth || image.height > viewportHeight) {
                 fitZoomToWindow()
                 return
             }

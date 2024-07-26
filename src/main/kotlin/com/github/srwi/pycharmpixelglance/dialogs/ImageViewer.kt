@@ -3,6 +3,8 @@ package com.github.srwi.pycharmpixelglance.dialogs
 import com.github.srwi.pycharmpixelglance.actions.CopyToClipboardAction
 import com.github.srwi.pycharmpixelglance.actions.FitZoomToWindowAction
 import com.github.srwi.pycharmpixelglance.actions.SaveAsPngAction
+import com.github.srwi.pycharmpixelglance.actions.ToggleInvertAction
+import com.github.srwi.pycharmpixelglance.data.DisplayableData
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
@@ -12,6 +14,7 @@ import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.components.JBLayeredPane
+import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.Magnificator
 import org.intellij.images.actions.ToggleTransparencyChessboardAction
 import org.intellij.images.editor.ImageDocument
@@ -34,13 +37,12 @@ import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import java.awt.event.MouseWheelEvent
 import java.awt.event.MouseWheelListener
-import java.awt.image.BufferedImage
 import java.beans.PropertyChangeEvent
 import java.beans.PropertyChangeListener
 import javax.swing.*
 import kotlin.math.max
 
-internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disposable, PersistentDialogWrapper(), DataProvider {
+internal class ImageViewer(private val data: DisplayableData) : ImageComponentDecorator, Disposable, PersistentDialogWrapper(), DataProvider {
 
     private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
     private val imageComponent: ImageComponent = ImageComponent()
@@ -48,7 +50,15 @@ internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disp
     private val wheelAdapter = ImageWheelAdapter()
     private val resizeAdapter = ImageResizeAdapter()
     private val infoLabel: JLabel = JLabel()
-    private var scrollPane: JScrollPane = JScrollPane()
+    private var scrollPane: JScrollPane = JBScrollPane()
+    private var batchIndex: Int = 0
+    private var channelIndex: Int = -1
+
+    var invertEnabled: Boolean = false
+        set(value) {
+            field = value
+            updateImage()
+        }
 
     init {
         title = "Image Editor"
@@ -70,17 +80,43 @@ internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disp
 
         init()
 
-        setImage(image)
+        updateImage(repaint = false)
+        smartZoom()
     }
 
-    private fun setImage(image: BufferedImage) {
+    private fun applyModifiers(data: DisplayableData): DisplayableData {
+        var modified = data
+        if (invertEnabled) {
+            modified = modified.invert()
+        }
+        return modified
+    }
+
+    private fun selectBatchAndChannel(batchIndex: Int, channelIndex: Int): DisplayableData {
+        // TODO: implement batch/channel logic
+        val data = this.data
+        return data
+    }
+
+    private fun updateImage(repaint: Boolean = true) {
+        val image = applyModifiers(selectBatchAndChannel(batchIndex, channelIndex)).getBuffer()
         val document: ImageDocument = imageComponent.document
         document.value = image
-        SwingUtilities.invokeLater {
-            // TODO: pass scroll pane size directly and see if any component has a defined size beefore this so we dont need invokelater
-            val zoomModel = internalZoomModel as ImageZoomModelImpl
-            zoomModel.smartZoom(scrollPane)
+        if (repaint) {
+            repaintImage()
         }
+    }
+
+    private fun smartZoom(repaint: Boolean = true) {
+        val zoomModel = internalZoomModel as ImageZoomModelImpl
+        zoomModel.smartZoom(scrollPane.viewport.width, scrollPane.viewport.height)
+        if (repaint) {
+            repaintImage()
+        }
+    }
+
+    private fun repaintImage() {
+        contentPane.repaint()
     }
 
     override fun createCenterPanel(): JComponent {
@@ -91,7 +127,6 @@ internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disp
         scrollPane.horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
         scrollPane.addMouseWheelListener(wheelAdapter)
         scrollPane.addComponentListener(resizeAdapter)
-
         return scrollPane
     }
 
@@ -157,6 +192,12 @@ internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disp
                 templatePresentation.icon = AllIcons.General.FitContent
                 templatePresentation.text = "Fit Zoom to Window"
                 templatePresentation.description = "Fit zoom to window"
+            })
+            addSeparator()
+            add(ToggleInvertAction().apply {
+                templatePresentation.icon = AllIcons.General.ChevronDown
+                templatePresentation.text = "Toggle Invert"
+                templatePresentation.description = "Toggle image inversion"
             })
         }
     }
@@ -238,15 +279,12 @@ internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disp
         if (ImageComponentDecorator.DATA_KEY.`is`(dataId)) {
             return this
         }
-        if ("scrollPane" == dataId) {
-            return scrollPane
-        }
         return null
     }
 
     override fun setTransparencyChessboardVisible(visible: Boolean) {
         imageComponent.isTransparencyChessboardVisible = visible
-        contentPane.repaint()
+        repaintImage()
     }
 
     override fun isTransparencyChessboardVisible(): Boolean {
@@ -259,7 +297,7 @@ internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disp
 
     override fun setGridVisible(visible: Boolean) {
         imageComponent.isGridVisible = visible
-        contentPane.repaint()
+        repaintImage()
     }
 
     override fun isGridVisible(): Boolean {
