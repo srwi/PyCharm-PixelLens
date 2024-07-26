@@ -30,24 +30,25 @@ import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
 import java.awt.Point
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
 import java.awt.event.MouseWheelEvent
 import java.awt.event.MouseWheelListener
 import java.awt.image.BufferedImage
 import java.beans.PropertyChangeEvent
 import java.beans.PropertyChangeListener
 import javax.swing.*
-import kotlin.math.ceil
 import kotlin.math.max
-import kotlin.math.min
 
 internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disposable, PersistentDialogWrapper(), DataProvider {
 
     private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
-    val internalZoomModel: ImageZoomModel = ImageZoomModelImpl()
-    val imageComponent: ImageComponent = ImageComponent()
-    private var scrollPane: JScrollPane = JScrollPane()
+    private val imageComponent: ImageComponent = ImageComponent()
+    private val internalZoomModel: ImageZoomModel = ImageZoomModelImpl(imageComponent)
     private val wheelAdapter = ImageWheelAdapter()
+    private val resizeAdapter = ImageResizeAdapter()
     private val infoLabel: JLabel = JLabel()
+    private var scrollPane: JScrollPane = JScrollPane()
 
     init {
         title = "Image Editor"
@@ -70,31 +71,15 @@ internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disp
         init()
 
         setImage(image)
-
-        SwingUtilities.invokeLater {
-            internalZoomModel.fitZoomToWindow()
-        }
     }
 
     private fun setImage(image: BufferedImage) {
         val document: ImageDocument = imageComponent.document
-        try {
-            val previousImage = document.value
-            document.value = image
-            if (previousImage == null || !internalZoomModel.isZoomLevelChanged) {
-                val options = OptionsManager.getInstance().options
-                val zoomOptions = options.editorOptions.zoomOptions
-                internalZoomModel.zoomFactor = 1.0
-                if (zoomOptions.isSmartZooming) {
-                    val prefferedSize = zoomOptions.prefferedSize
-                    if (prefferedSize.width > image.width && prefferedSize.height > image.height) {
-                        val factor = (prefferedSize.getWidth() / image.width.toDouble() + prefferedSize.getHeight() / image.height.toDouble()) / 2.0
-                        internalZoomModel.zoomFactor = ceil(factor)
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            document.value = null
+        document.value = image
+        SwingUtilities.invokeLater {
+            // TODO: pass scroll pane size directly and see if any component has a defined size beefore this so we dont need invokelater
+            val zoomModel = internalZoomModel as ImageZoomModelImpl
+            zoomModel.smartZoom(scrollPane)
         }
     }
 
@@ -105,6 +90,7 @@ internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disp
         scrollPane.verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED
         scrollPane.horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
         scrollPane.addMouseWheelListener(wheelAdapter)
+        scrollPane.addComponentListener(resizeAdapter)
 
         return scrollPane
     }
@@ -164,19 +150,21 @@ internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disp
             })
             add(ActualSizeAction().apply {
                 templatePresentation.icon = AllIcons.General.ActualZoom
-                templatePresentation.text = "Reset Zoom"
-                templatePresentation.description = "Reset zoom to original size"
+                templatePresentation.text = "Actual Size"
+                templatePresentation.description = "Reset zoom to actual image size"
             })
             add(FitZoomToWindowAction().apply {
                 templatePresentation.icon = AllIcons.General.FitContent
-                templatePresentation.text = "Fit to Window"
-                templatePresentation.description = "Fit image to window"
+                templatePresentation.text = "Fit Zoom to Window"
+                templatePresentation.description = "Fit zoom to window"
             })
         }
     }
 
     override fun dispose() {
         imageComponent.removeMouseWheelListener(wheelAdapter)
+        scrollPane.removeMouseWheelListener(wheelAdapter)
+        scrollPane.removeComponentListener(resizeAdapter)
         super.dispose()
     }
 
@@ -228,101 +216,10 @@ internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disp
         }
     }
 
-    private inner class ImageZoomModelImpl : ImageZoomModel {
-        private var zoomLevelChanged = false
-        private var zoomFactor = 1.0
-
-        override fun getZoomFactor(): Double = zoomFactor
-
-        override fun setZoomFactor(zoomFactor: Double) {
-            val oldZoomFactor = this.zoomFactor
-            if (oldZoomFactor != zoomFactor) {
-                this.zoomFactor = zoomFactor
-                updateImageComponentSize()
-                imageComponent.revalidate()
-                imageComponent.repaint()
-                zoomLevelChanged = false
-                imageComponent.firePropertyChange("ImageEditor.zoomFactor", oldZoomFactor, zoomFactor)
-            }
-        }
-
-        override fun fitZoomToWindow() {
-            val image = imageComponent.document.value ?: return
-            val verticalScrollBarWidth = scrollPane.verticalScrollBar.preferredSize.width
-            val horizontalScrollBarHeight = scrollPane.horizontalScrollBar.preferredSize.height
-            val adjustedWidth = scrollPane.viewport.width - verticalScrollBarWidth
-            val adjustedHeight = scrollPane.viewport.height - horizontalScrollBarHeight
-            val widthRatio = adjustedWidth.toDouble() / image.width
-            val heightRatio = adjustedHeight.toDouble() / image.height
-            val newZoomFactor = min(widthRatio, heightRatio)
-            setZoomFactor(newZoomFactor)
-            zoomLevelChanged = false
-        }
-
-        private val minimumZoomFactor: Double
-            get() {
-                val bounds = imageComponent.document.bounds
-                val factor = bounds?.let { 1.0 / it.width } ?: 0.0
-                return max(factor, ImageZoomModel.MICRO_ZOOM_LIMIT)
-            }
-
-        private val maximumZoomFactor: Double
-            get() = min(ImageZoomModel.MACRO_ZOOM_LIMIT, Double.MAX_VALUE)
-
-        override fun zoomOut() {
-            setZoomFactor(getNextZoomOut())
-            zoomLevelChanged = true
-        }
-
-        override fun zoomIn() {
-            setZoomFactor(getNextZoomIn())
-            zoomLevelChanged = true
-        }
-
-        private fun getNextZoomOut(): Double {
-            var factor = zoomFactor
-            if (factor > 1.0) {
-                factor /= 2.0
-                factor = max(factor, 1.0)
-            } else {
-                factor /= 1.5
-            }
-            return max(factor, minimumZoomFactor)
-        }
-
-        private fun getNextZoomIn(): Double {
-            var factor = zoomFactor
-            if (factor >= 1.0) {
-                factor *= 2.0
-            } else {
-                factor *= 1.5
-                factor = min(factor, 1.0)
-            }
-            return min(factor, maximumZoomFactor)
-        }
-
-        override fun setZoomLevelChanged(value: Boolean) {
-            zoomLevelChanged = value
-        }
-
-        override fun canZoomOut(): Boolean {
-            return zoomFactor - 1e-14 > minimumZoomFactor
-        }
-
-        override fun canZoomIn(): Boolean {
-            return zoomFactor < maximumZoomFactor
-        }
-
-        override fun isZoomLevelChanged(): Boolean {
-            return zoomLevelChanged
-        }
-
-        private fun updateImageComponentSize() {
-            val image = imageComponent.document.value
-            image?.let {
-                val newWidth = (it.width * zoomFactor).toInt()
-                val newHeight = (it.height * zoomFactor).toInt()
-                imageComponent.canvasSize = Dimension(newWidth, newHeight)
+    private inner class ImageResizeAdapter : ComponentAdapter() {
+        override fun componentResized(e: ComponentEvent?) {
+            if (!internalZoomModel.isZoomLevelChanged) {
+                internalZoomModel.fitZoomToWindow()
             }
         }
     }
@@ -340,6 +237,9 @@ internal class ImageViewer(image: BufferedImage) : ImageComponentDecorator, Disp
     override fun getData(dataId: String): Any? {
         if (ImageComponentDecorator.DATA_KEY.`is`(dataId)) {
             return this
+        }
+        if ("scrollPane" == dataId) {
+            return scrollPane
         }
         return null
     }
