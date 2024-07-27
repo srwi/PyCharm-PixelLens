@@ -119,4 +119,9 @@ class DisplayableData private constructor(
     fun reverseChannels() = applyModificationIfApplicable(ReverseChannelsModification())
     fun normalize() = applyModificationIfApplicable(NormalizeModification())
     fun applyColormap() = applyModificationIfApplicable(ColormapModification())
+
+    val transposeApplicable: Boolean get() = TransposeModification().isApplicable(this)
+    val reverseChannelsApplicable: Boolean get() = ReverseChannelsModification().isApplicable(this)
+    val normalizeApplicable: Boolean get() = NormalizeModification().isApplicable(this)
+    val applyColormapApplicable: Boolean get() = ColormapModification().isApplicable(this)
 }

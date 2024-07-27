@@ -2,7 +2,9 @@ package com.github.srwi.pycharmpixelglance.dialogs
 
 import com.github.srwi.pycharmpixelglance.actions.*
 import com.github.srwi.pycharmpixelglance.data.DisplayableData
+import com.github.srwi.pycharmpixelglance.icons.ImageViewerIcons
 import com.intellij.icons.AllIcons
+import com.intellij.ide.ActivityTracker
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
@@ -39,9 +41,9 @@ import java.beans.PropertyChangeListener
 import javax.swing.*
 import kotlin.math.max
 
-internal class ImageViewer(private val data: DisplayableData) : PersistentDialogWrapper(), ImageComponentDecorator, DataProvider, Disposable {
+internal class ImageViewer(val data: DisplayableData) : PersistentDialogWrapper(), ImageComponentDecorator, DataProvider, Disposable {
 
-    private var modifiedData: DisplayableData = data
+    var modifiedData: DisplayableData = data
 
     // TODO: read default from options
     var normalizeEnabled: Boolean = false
@@ -126,14 +128,13 @@ internal class ImageViewer(private val data: DisplayableData) : PersistentDialog
         val image = modifiedData.getBuffer()
         val document: ImageDocument = imageComponent.document
         document.value = image
+        ActivityTracker.getInstance().inc()  // TODO: only update this toolbar
     }
 
-    private fun smartZoom(repaint: Boolean = true) {
+    private fun smartZoom() {
         val zoomModel = internalZoomModel as ImageZoomModelImpl
         zoomModel.smartZoom(scrollPane.viewport.width, scrollPane.viewport.height)
-        if (repaint) {
-            repaintImage()
-        }
+        repaintImage()
     }
 
     private fun repaintImage() {
@@ -184,7 +185,7 @@ internal class ImageViewer(private val data: DisplayableData) : PersistentDialog
             })
             addSeparator()
             add(ToggleTransparencyChessboardAction().apply {
-                templatePresentation.icon = AllIcons.Gutter.Colors
+                templatePresentation.icon = ImageViewerIcons.Chessboard
                 templatePresentation.text = "Toggle Chessboard"
                 templatePresentation.description = "Toggle transparency chessboard"
             })
@@ -216,22 +217,22 @@ internal class ImageViewer(private val data: DisplayableData) : PersistentDialog
             })
             addSeparator()
             add(ToggleReverseChannelsAction().apply {
-                templatePresentation.icon = AllIcons.General.ChevronLeft
-                templatePresentation.text = "Toggle Reverse Channels (RGB -> BGR)"
+                templatePresentation.icon = ImageViewerIcons.ReverseChannels
+                templatePresentation.text = "Toggle Reverse Channels (RGB → BGR)"
                 templatePresentation.description = "Treat image as BGR instead of RGB"
             })
             add(ToggleTransposeAction().apply {
-                templatePresentation.icon = AllIcons.General.ChevronDown
-                templatePresentation.text = "Toggle Transpose (HWC -> CHW)"
+                templatePresentation.icon = ImageViewerIcons.Transpose
+                templatePresentation.text = "Toggle Transpose (HWC → CHW)"
                 templatePresentation.description = "Treat image as CHW instead of HWC"
             })
             add(ToggleNormalizeAction().apply {
-                templatePresentation.icon = AllIcons.General.ChevronUp
+                templatePresentation.icon = ImageViewerIcons.Normalize
                 templatePresentation.text = "Toggle Normalize"
                 templatePresentation.description = "Normalize image values"
             })
             add(ToggleApplyColormapAction().apply {
-                templatePresentation.icon = AllIcons.General.ChevronRight
+                templatePresentation.icon = ImageViewerIcons.Colormap
                 templatePresentation.text = "Toggle Colormap (Viridis)"
                 templatePresentation.description = "Apply Viridis colormap to grayscale image"
             })

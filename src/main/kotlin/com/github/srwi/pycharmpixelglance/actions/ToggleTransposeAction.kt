@@ -29,6 +29,14 @@ internal class ToggleTransposeAction : DumbAwareToggleAction() {
         }
     }
 
+    override fun update(e: AnActionEvent) {
+        super.update(e)
+        val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
+        if (imageViewer != null) {
+            e.presentation.isEnabled = imageViewer.data.transposeApplicable || imageViewer.transposeEnabled
+        }
+    }
+
     override fun getActionUpdateThread(): ActionUpdateThread {
         return ActionUpdateThread.EDT
     }

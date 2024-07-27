@@ -29,6 +29,14 @@ internal class ToggleNormalizeAction : DumbAwareToggleAction() {
         }
     }
 
+    override fun update(e: AnActionEvent) {
+        super.update(e)
+        val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
+        if (imageViewer != null) {
+            e.presentation.isEnabled = imageViewer.data.normalizeApplicable || imageViewer.normalizeEnabled
+        }
+    }
+
     override fun getActionUpdateThread(): ActionUpdateThread {
         return ActionUpdateThread.EDT
     }
