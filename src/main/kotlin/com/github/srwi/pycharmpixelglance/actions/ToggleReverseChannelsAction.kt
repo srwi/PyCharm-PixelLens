@@ -6,18 +6,18 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.DumbAwareToggleAction
 import org.intellij.images.editor.actionSystem.ImageEditorActionUtil
 
-internal class ToggleApplyColormapAction : DumbAwareToggleAction() {
+internal class ToggleReverseChannelsAction : DumbAwareToggleAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            imageViewer.applyColormapEnabled = !imageViewer.applyColormapEnabled
+            imageViewer.reverseChannelsEnabled = !imageViewer.reverseChannelsEnabled
         }
     }
 
     override fun isSelected(e: AnActionEvent): Boolean {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            return imageViewer.applyColormapEnabled
+            return imageViewer.reverseChannelsEnabled
         }
         return false
     }
@@ -25,7 +25,7 @@ internal class ToggleApplyColormapAction : DumbAwareToggleAction() {
     override fun setSelected(e: AnActionEvent, state: Boolean) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            imageViewer.applyColormapEnabled = state
+            imageViewer.reverseChannelsEnabled = state
         }
     }
 

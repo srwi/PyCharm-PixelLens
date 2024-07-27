@@ -1,15 +1,13 @@
 package com.github.srwi.pycharmpixelglance.data
 
-import org.jetbrains.kotlinx.multik.api.mk
-import org.jetbrains.kotlinx.multik.api.zeros
+import com.github.srwi.pycharmpixelglance.data.modifications.*
 import org.jetbrains.kotlinx.multik.ndarray.data.*
 import org.jetbrains.kotlinx.multik.ndarray.operations.*
 import java.awt.image.BufferedImage
 import java.awt.image.DataBufferByte
-import kotlin.math.pow
 
 class DisplayableData private constructor(
-    private var image: NDArray<Float, D3>
+    val image: NDArray<Float, D3>
 ) {
     companion object {
         fun fromNDArray(originalData: NDArray<Any, DN>, originalDataType: String): DisplayableData {
@@ -19,6 +17,8 @@ class DisplayableData private constructor(
         }
 
         private fun reshapeData(array: NDArray<Float, DN>): NDArray<Float, D3> {
+            // TODO: don't squeeze last dimensions as it is unlikely they will not have any meaning
+            // TODO: reshape to always have batch and channel dimensions
             when (array.shape.size) {
                 1, 2 -> {
                     val unsqueezed = array.unsqueeze(array.shape.size)
@@ -106,93 +106,17 @@ class DisplayableData private constructor(
         return bufferedImage
     }
 
-    fun normalize(): DisplayableData {
-        val min = image.min() ?: 0f
-        val max = image.max() ?: 255f
-        val normalizedImage = (image - min) / (max - min) * 255f
-        return DisplayableData(normalizedImage)
-    }
-
-    val reverseChannelsPossible: Boolean
-        get() = channels == 3 || channels == 4
-
-    fun reverseChannels(): DisplayableData {
-        if (!reverseChannelsPossible) {
+    private fun applyModificationIfApplicable(modification: ImageModification): DisplayableData {
+        if (!modification.isApplicable(this)) {
             return this
         }
 
-        val reversedImage = mk.zeros<Float>(image.shape[0], image.shape[1], image.shape[2])
-
-        for (i in 0 until height) {
-            for (j in 0 until width) {
-                reversedImage[i, j, 0] = image[i, j, 2]
-                reversedImage[i, j, 1] = image[i, j, 1]
-                reversedImage[i, j, 2] = image[i, j, 0]
-                if (channels == 4) {
-                    reversedImage[i, j, 3] = image[i, j, 3]
-                }
-            }
-        }
-
-        return DisplayableData(reversedImage)
+        val modifiedImage = modification.apply(this)
+        return DisplayableData(modifiedImage)
     }
 
-    val transposePossible: Boolean
-        get() = channels == 1 || channels == 3 || channels == 4
-
-    fun transpose(): DisplayableData {
-        if (!transposePossible) {
-            return this
-        }
-
-        val transposedImage = image.transpose(2, 0, 1)
-        return DisplayableData(transposedImage)
-    }
-
-    val applyColormapPossible: Boolean
-        get() = channels == 1
-
-    fun applyColormap(): DisplayableData {
-        if (!applyColormapPossible) {
-            return this
-        }
-
-        val grayscaleImage = image.squeeze(2) as NDArray<Float, D2>
-        val coloredImage = mk.zeros<Float>(image.shape[0], image.shape[1], 3)
-
-        for (i in 0 until height) {
-            for (j in 0 until width) {
-                val value = grayscaleImage[i, j] / 255f
-                val (r, g, b) = viridisColor(value)
-                coloredImage[i, j, 0] = r
-                coloredImage[i, j, 1] = g
-                coloredImage[i, j, 2] = b
-            }
-        }
-
-        return DisplayableData(coloredImage)
-    }
-
-    private fun viridisColor(value: Float): Triple<Float, Float, Float> {
-        // Coefficients for the Viridis colormap approximation
-        val c0 = listOf(0.2777273272234177, 0.005407344544966578, 0.3340998053353061)
-        val c1 = listOf(0.1050930431085774, 1.404613529898575, 1.384590162594685)
-        val c2 = listOf(-0.3308618287255563, 0.214847559468213, 0.09509516302823659)
-        val c3 = listOf(-4.634230498983486, -5.799100973351585, -19.33244095627987)
-        val c4 = listOf(6.228269936347081, 14.17993336680509, 56.69055260068105)
-        val c5 = listOf(4.776384997670288, -13.74514537774601, -65.35303263337234)
-        val c6 = listOf(-5.435455855934631, 4.645852612178535, 26.3124352495832)
-
-        val v = value.coerceIn(0f, 1f)
-
-        fun channel(i: Int): Float {
-            return (c0[i] + v * (c1[i] + v * (c2[i] + v * (c3[i] + v * (c4[i] + v * (c5[i] + v * c6[i])))))).toFloat()
-        }
-
-        return Triple(
-            channel(0).pow(2).times(255).coerceIn(0f, 255f),
-            channel(1).pow(2).times(255).coerceIn(0f, 255f),
-            channel(2).pow(2).times(255).coerceIn(0f, 255f)
-        )
-    }
+    fun transpose() = applyModificationIfApplicable(TransposeModification())
+    fun reverseChannels() = applyModificationIfApplicable(ReverseChannelsModification())
+    fun normalize() = applyModificationIfApplicable(NormalizeModification())
+    fun applyColormap() = applyModificationIfApplicable(ColormapModification())
 }

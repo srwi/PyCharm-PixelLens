@@ -1,4 +1,4 @@
-package com.github.srwi.pycharmpixelglance.data
+package com.github.srwi.pycharmpixelglance.imageProviders
 
 import com.github.srwi.pycharmpixelglance.interop.Python.evaluateExpression
 import com.github.srwi.pycharmpixelglance.interop.Python.executeStatement

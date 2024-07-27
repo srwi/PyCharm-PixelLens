@@ -10,15 +10,14 @@ internal class ToggleNormalizeAction : DumbAwareToggleAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            imageViewer.processedData.normalizeEnabled = !imageViewer.processedData.normalizeEnabled
-            imageViewer.updateImage()
+            imageViewer.normalizeEnabled = !imageViewer.normalizeEnabled
         }
     }
 
     override fun isSelected(e: AnActionEvent): Boolean {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            return imageViewer.processedData.normalizeEnabled
+            return imageViewer.normalizeEnabled
         }
         return false
     }
@@ -26,8 +25,7 @@ internal class ToggleNormalizeAction : DumbAwareToggleAction() {
     override fun setSelected(e: AnActionEvent, state: Boolean) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            imageViewer.processedData.normalizeEnabled = state
-            imageViewer.updateImage()
+            imageViewer.normalizeEnabled = state
         }
     }
 

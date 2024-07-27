@@ -1,9 +1,6 @@
 package com.github.srwi.pycharmpixelglance.dialogs
 
 import com.github.srwi.pycharmpixelglance.actions.*
-import com.github.srwi.pycharmpixelglance.actions.FitZoomToWindowAction
-import com.github.srwi.pycharmpixelglance.actions.ToggleTransposeAction
-import com.github.srwi.pycharmpixelglance.data.CachedProcessingPipeline
 import com.github.srwi.pycharmpixelglance.data.DisplayableData
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
@@ -44,7 +41,36 @@ import kotlin.math.max
 
 internal class ImageViewer(private val data: DisplayableData) : PersistentDialogWrapper(), ImageComponentDecorator, DataProvider, Disposable {
 
-    val processedData: CachedProcessingPipeline = CachedProcessingPipeline(data)
+    private var modifiedData: DisplayableData = data
+
+    // TODO: read default from options
+    var normalizeEnabled: Boolean = false
+        get() = field
+        set(value) {
+            field = value
+            applyDataModifications()
+        }
+
+    var transposeEnabled: Boolean = false
+        get() = field
+        set(value) {
+            field = value
+            applyDataModifications()
+        }
+
+    var reverseChannelsEnabled: Boolean = false
+        get() = field
+        set(value) {
+            field = value
+            applyDataModifications()
+        }
+
+    var applyColormapEnabled: Boolean = false
+        get() = field
+        set(value) {
+            field = value
+            applyDataModifications()
+        }
 
     private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
     private val imageComponent: ImageComponent = ImageComponent()
@@ -74,17 +100,32 @@ internal class ImageViewer(private val data: DisplayableData) : PersistentDialog
 
         init()
 
-        updateImage(repaint = false)
+        updateImage()
         smartZoom()
     }
 
-    fun updateImage(repaint: Boolean = true) {
-        val image = processedData.apply().getBuffer()
+    private fun applyDataModifications() {
+        modifiedData = data
+        if (normalizeEnabled) {
+            modifiedData = modifiedData.normalize()
+        }
+        if (reverseChannelsEnabled) {
+            modifiedData = modifiedData.reverseChannels()
+        }
+        if (transposeEnabled) {
+            modifiedData = modifiedData.transpose()
+        }
+        if (applyColormapEnabled) {
+            modifiedData = modifiedData.applyColormap()
+        }
+        updateImage()
+        repaintImage()
+    }
+
+    private fun updateImage() {
+        val image = modifiedData.getBuffer()
         val document: ImageDocument = imageComponent.document
         document.value = image
-        if (repaint) {
-            repaintImage()
-        }
     }
 
     private fun smartZoom(repaint: Boolean = true) {
@@ -174,20 +215,25 @@ internal class ImageViewer(private val data: DisplayableData) : PersistentDialog
                 templatePresentation.description = "Fit zoom to window"
             })
             addSeparator()
+            add(ToggleReverseChannelsAction().apply {
+                templatePresentation.icon = AllIcons.General.ChevronLeft
+                templatePresentation.text = "Toggle Reverse Channels (RGB -> BGR)"
+                templatePresentation.description = "Treat image as BGR instead of RGB"
+            })
             add(ToggleTransposeAction().apply {
                 templatePresentation.icon = AllIcons.General.ChevronDown
-                templatePresentation.text = "Toggle Transpose"
-                templatePresentation.description = "Toggle image transpose"
+                templatePresentation.text = "Toggle Transpose (HWC -> CHW)"
+                templatePresentation.description = "Treat image as CHW instead of HWC"
             })
             add(ToggleNormalizeAction().apply {
                 templatePresentation.icon = AllIcons.General.ChevronUp
                 templatePresentation.text = "Toggle Normalize"
-                templatePresentation.description = "Toggle image normalization"
+                templatePresentation.description = "Normalize image values"
             })
             add(ToggleApplyColormapAction().apply {
                 templatePresentation.icon = AllIcons.General.ChevronRight
-                templatePresentation.text = "Toggle Colormap"
-                templatePresentation.description = "Toggle image colormap"
+                templatePresentation.text = "Toggle Colormap (Viridis)"
+                templatePresentation.description = "Apply Viridis colormap to grayscale image"
             })
         }
     }

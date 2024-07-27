@@ -1,5 +1,6 @@
-package com.github.srwi.pycharmpixelglance.data
+package com.github.srwi.pycharmpixelglance.imageProviders
 
+import com.github.srwi.pycharmpixelglance.data.DisplayableData
 import com.jetbrains.python.debugger.PyFrameAccessor
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

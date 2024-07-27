@@ -1,9 +1,9 @@
 package com.github.srwi.pycharmpixelglance.actions
 
-import com.github.srwi.pycharmpixelglance.data.NumpyImageProvider
-import com.github.srwi.pycharmpixelglance.data.PillowImageProvider
-import com.github.srwi.pycharmpixelglance.data.PytorchImageProvider
-import com.github.srwi.pycharmpixelglance.data.TensorflowImageProvider
+import com.github.srwi.pycharmpixelglance.imageProviders.NumpyImageProvider
+import com.github.srwi.pycharmpixelglance.imageProviders.PillowImageProvider
+import com.github.srwi.pycharmpixelglance.imageProviders.PytorchImageProvider
+import com.github.srwi.pycharmpixelglance.imageProviders.TensorflowImageProvider
 import com.github.srwi.pycharmpixelglance.dialogs.ImageViewer
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
