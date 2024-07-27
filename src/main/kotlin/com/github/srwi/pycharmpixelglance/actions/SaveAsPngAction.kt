@@ -1,5 +1,6 @@
 package com.github.srwi.pycharmpixelglance.actions
 
+import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.DumbAwareAction
 import java.awt.image.BufferedImage
@@ -23,5 +24,9 @@ class SaveAsPngAction(private val getImage: () -> BufferedImage?) : DumbAwareAct
             }
             ImageIO.write(image, "png", fileToSave)
         }
+    }
+
+    override fun getActionUpdateThread(): ActionUpdateThread {
+        return ActionUpdateThread.EDT
     }
 }

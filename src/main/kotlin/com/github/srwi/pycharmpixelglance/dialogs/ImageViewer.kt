@@ -1,9 +1,9 @@
 package com.github.srwi.pycharmpixelglance.dialogs
 
-import com.github.srwi.pycharmpixelglance.actions.CopyToClipboardAction
+import com.github.srwi.pycharmpixelglance.actions.*
 import com.github.srwi.pycharmpixelglance.actions.FitZoomToWindowAction
-import com.github.srwi.pycharmpixelglance.actions.SaveAsPngAction
-import com.github.srwi.pycharmpixelglance.actions.ToggleInvertAction
+import com.github.srwi.pycharmpixelglance.actions.ToggleTransposeAction
+import com.github.srwi.pycharmpixelglance.data.CachedProcessingPipeline
 import com.github.srwi.pycharmpixelglance.data.DisplayableData
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
@@ -42,7 +42,9 @@ import java.beans.PropertyChangeListener
 import javax.swing.*
 import kotlin.math.max
 
-internal class ImageViewer(private val data: DisplayableData) : ImageComponentDecorator, Disposable, PersistentDialogWrapper(), DataProvider {
+internal class ImageViewer(private val data: DisplayableData) : PersistentDialogWrapper(), ImageComponentDecorator, DataProvider, Disposable {
+
+    val processedData: CachedProcessingPipeline = CachedProcessingPipeline(data)
 
     private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
     private val imageComponent: ImageComponent = ImageComponent()
@@ -51,17 +53,9 @@ internal class ImageViewer(private val data: DisplayableData) : ImageComponentDe
     private val resizeAdapter = ImageResizeAdapter()
     private val infoLabel: JLabel = JLabel()
     private var scrollPane: JScrollPane = JBScrollPane()
-    private var batchIndex: Int = 0
-    private var channelIndex: Int = -1
-
-    var invertEnabled: Boolean = false
-        set(value) {
-            field = value
-            updateImage()
-        }
 
     init {
-        title = "Image Editor"
+        title = "Image Editor"  // TODO: replace with variable name, shape and dtype
 
         val options = OptionsManager.getInstance().options
         options.addPropertyChangeListener(optionsChangeListener, this)
@@ -84,22 +78,8 @@ internal class ImageViewer(private val data: DisplayableData) : ImageComponentDe
         smartZoom()
     }
 
-    private fun applyModifiers(data: DisplayableData): DisplayableData {
-        var modified = data
-        if (invertEnabled) {
-            modified = modified.invert()
-        }
-        return modified
-    }
-
-    private fun selectBatchAndChannel(batchIndex: Int, channelIndex: Int): DisplayableData {
-        // TODO: implement batch/channel logic
-        val data = this.data
-        return data
-    }
-
-    private fun updateImage(repaint: Boolean = true) {
-        val image = applyModifiers(selectBatchAndChannel(batchIndex, channelIndex)).getBuffer()
+    fun updateImage(repaint: Boolean = true) {
+        val image = processedData.apply().getBuffer()
         val document: ImageDocument = imageComponent.document
         document.value = image
         if (repaint) {
@@ -194,10 +174,20 @@ internal class ImageViewer(private val data: DisplayableData) : ImageComponentDe
                 templatePresentation.description = "Fit zoom to window"
             })
             addSeparator()
-            add(ToggleInvertAction().apply {
+            add(ToggleTransposeAction().apply {
                 templatePresentation.icon = AllIcons.General.ChevronDown
-                templatePresentation.text = "Toggle Invert"
-                templatePresentation.description = "Toggle image inversion"
+                templatePresentation.text = "Toggle Transpose"
+                templatePresentation.description = "Toggle image transpose"
+            })
+            add(ToggleNormalizeAction().apply {
+                templatePresentation.icon = AllIcons.General.ChevronUp
+                templatePresentation.text = "Toggle Normalize"
+                templatePresentation.description = "Toggle image normalization"
+            })
+            add(ToggleApplyColormapAction().apply {
+                templatePresentation.icon = AllIcons.General.ChevronRight
+                templatePresentation.text = "Toggle Colormap"
+                templatePresentation.description = "Toggle image colormap"
             })
         }
     }

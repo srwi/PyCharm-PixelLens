@@ -14,7 +14,6 @@ class PillowImageProvider : ImageProvider() {
             __tmp_image = $name
             __tmp_image_bytes = __tmp_image.tobytes()
             __tmp_image_base64 = __tmp_base64.b64encode(__tmp_image_bytes).decode('utf-8')
-        
             __tmp_payload = {
                 'imageData': __tmp_image_base64,
                 'metadata': {
