@@ -108,24 +108,26 @@ internal class ImageViewer(val data: DisplayableData) : PersistentDialogWrapper(
 
     private fun applyDataModifications() {
         modifiedData = data
+        if (transposeEnabled) {
+            modifiedData = modifiedData.transpose()
+        }
         if (normalizeEnabled) {
             modifiedData = modifiedData.normalize()
         }
         if (reverseChannelsEnabled) {
             modifiedData = modifiedData.reverseChannels()
         }
-        if (transposeEnabled) {
-            modifiedData = modifiedData.transpose()
-        }
-        if (applyColormapEnabled) {
-            modifiedData = modifiedData.applyColormap()
-        }
         updateImage()
         repaintImage()
     }
 
     private fun updateImage() {
-        val image = modifiedData.getBuffer()
+        val colormappedData = if (applyColormapEnabled) {
+            modifiedData.applyColormap()
+        } else {
+            modifiedData
+        }
+        val image = colormappedData.getBuffer()
         val document: ImageDocument = imageComponent.document
         document.value = image
         ActivityTracker.getInstance().inc()  // TODO: only update this toolbar
@@ -216,15 +218,15 @@ internal class ImageViewer(val data: DisplayableData) : PersistentDialogWrapper(
                 templatePresentation.description = "Fit zoom to window"
             })
             addSeparator()
-            add(ToggleReverseChannelsAction().apply {
-                templatePresentation.icon = ImageViewerIcons.ReverseChannels
-                templatePresentation.text = "Toggle Reverse Channels (RGB → BGR)"
-                templatePresentation.description = "Treat image as BGR instead of RGB"
-            })
             add(ToggleTransposeAction().apply {
                 templatePresentation.icon = ImageViewerIcons.Transpose
                 templatePresentation.text = "Toggle Transpose (HWC → CHW)"
                 templatePresentation.description = "Treat image as CHW instead of HWC"
+            })
+            add(ToggleReverseChannelsAction().apply {
+                templatePresentation.icon = ImageViewerIcons.ReverseChannels
+                templatePresentation.text = "Toggle Reverse Channels (RGB → BGR)"
+                templatePresentation.description = "Treat image as BGR instead of RGB"
             })
             add(ToggleNormalizeAction().apply {
                 templatePresentation.icon = ImageViewerIcons.Normalize

@@ -10,7 +10,7 @@ class ColormapModification : ImageModification {
     override fun isApplicable(data: DisplayableData): Boolean =
         data.channels == 1
 
-    override fun apply(data: DisplayableData): NDArray<Float, D3> {
+    override fun apply(data: DisplayableData): DisplayableData {
         val grayscaleImage = data.image.squeeze(2) as NDArray<Float, D2>
         val coloredImage = mk.zeros<Float>(data.height, data.width, 3)
 
@@ -24,7 +24,7 @@ class ColormapModification : ImageModification {
             }
         }
 
-        return coloredImage
+        return DisplayableData(coloredImage)
     }
 
     private fun viridisColor(value: Float): Triple<Float, Float, Float> {

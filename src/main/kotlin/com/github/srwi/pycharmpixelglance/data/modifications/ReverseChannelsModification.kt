@@ -3,8 +3,6 @@ package com.github.srwi.pycharmpixelglance.data.modifications
 import com.github.srwi.pycharmpixelglance.data.DisplayableData
 import org.jetbrains.kotlinx.multik.api.mk
 import org.jetbrains.kotlinx.multik.api.zeros
-import org.jetbrains.kotlinx.multik.ndarray.data.D3
-import org.jetbrains.kotlinx.multik.ndarray.data.NDArray
 import org.jetbrains.kotlinx.multik.ndarray.data.get
 import org.jetbrains.kotlinx.multik.ndarray.data.set
 
@@ -12,7 +10,7 @@ class ReverseChannelsModification : ImageModification {
     override fun isApplicable(data: DisplayableData): Boolean =
         data.channels == 3 || data.channels == 4
 
-    override fun apply(data: DisplayableData): NDArray<Float, D3> {
+    override fun apply(data: DisplayableData): DisplayableData {
         val reversedImage = mk.zeros<Float>(data.height, data.width, data.channels)
         for (i in 0 until data.height) {
             for (j in 0 until data.width) {
@@ -24,6 +22,6 @@ class ReverseChannelsModification : ImageModification {
                 }
             }
         }
-        return reversedImage
+        return DisplayableData(reversedImage)
     }
 }

@@ -2,11 +2,14 @@ package com.github.srwi.pycharmpixelglance.data
 
 import com.github.srwi.pycharmpixelglance.data.modifications.*
 import org.jetbrains.kotlinx.multik.ndarray.data.*
-import org.jetbrains.kotlinx.multik.ndarray.operations.*
+import org.jetbrains.kotlinx.multik.ndarray.operations.clip
+import org.jetbrains.kotlinx.multik.ndarray.operations.div
+import org.jetbrains.kotlinx.multik.ndarray.operations.plus
+import org.jetbrains.kotlinx.multik.ndarray.operations.times
 import java.awt.image.BufferedImage
 import java.awt.image.DataBufferByte
 
-class DisplayableData private constructor(
+class DisplayableData (
     val image: NDArray<Float, D3>
 ) {
     companion object {
@@ -57,11 +60,13 @@ class DisplayableData private constructor(
         }
     }
 
-    val height: Int get() = image.shape[0]
+    private val ndims: Int get() = image.shape.size
 
-    val width: Int get() = image.shape[1]
+    val height: Int get() = image.shape[ndims - 3]
 
-    val channels: Int get() = image.shape[2]
+    val width: Int get() = image.shape[ndims - 2]
+
+    val channels: Int get() = image.shape[ndims - 1]
 
     fun getValue(x: Int, y: Int): MultiArray<Float, D1> {
         return image[x, y]
@@ -69,10 +74,11 @@ class DisplayableData private constructor(
 
     fun getBuffer(): BufferedImage {
         val bufferedImage = when (channels) {
+            // TODO: width and height are incorrect for transposed images causing wrong aspect ratio
             1 -> BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY)
             3 -> BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR)
             4 -> BufferedImage(width, height, BufferedImage.TYPE_4BYTE_ABGR)
-            else -> throw IllegalArgumentException("Unsupported number of channels: $channels")
+            else -> BufferedImage(100, 100, BufferedImage.TYPE_BYTE_GRAY)  // TODO: this is a placeholder for unsupported channels
         }
 
         val intImage = image.asType<Int>().clip(0, 255).flatten()
@@ -107,12 +113,11 @@ class DisplayableData private constructor(
     }
 
     private fun applyModificationIfApplicable(modification: ImageModification): DisplayableData {
-        if (!modification.isApplicable(this)) {
-            return this
+        if (modification.isApplicable(this)) {
+            return modification.apply(this)
         }
 
-        val modifiedImage = modification.apply(this)
-        return DisplayableData(modifiedImage)
+        return this
     }
 
     fun transpose() = applyModificationIfApplicable(TransposeModification())

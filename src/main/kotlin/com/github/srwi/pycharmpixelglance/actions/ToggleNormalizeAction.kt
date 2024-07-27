@@ -33,7 +33,10 @@ internal class ToggleNormalizeAction : DumbAwareToggleAction() {
         super.update(e)
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            e.presentation.isEnabled = imageViewer.data.normalizeApplicable || imageViewer.normalizeEnabled
+            e.presentation.isEnabled = imageViewer.modifiedData.normalizeApplicable
+            if (!e.presentation.isEnabled) {
+                setSelected(e, false)
+            }
         }
     }
 
