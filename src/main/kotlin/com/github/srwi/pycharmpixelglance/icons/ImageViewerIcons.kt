@@ -13,4 +13,10 @@ object ImageViewerIcons {
     val Colormap = IconLoader.getIcon("/icons/colormap.svg", javaClass)
     @JvmField
     val Transpose = IconLoader.getIcon("/icons/transpose.svg", javaClass)
+    @JvmField
+    val ToggleSidebar = IconLoader.getIcon("/icons/toggleSidebar.svg", javaClass)
+    @JvmField
+    val Layers = IconLoader.getIcon("/icons/layers.svg", javaClass)
+    @JvmField
+    val Channels = IconLoader.getIcon("/icons/channels.svg", javaClass)
 }

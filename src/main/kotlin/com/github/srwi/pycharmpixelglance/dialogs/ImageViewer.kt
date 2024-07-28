@@ -14,9 +14,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
-import com.intellij.ui.components.JBLayeredPane
-import com.intellij.ui.components.JBScrollPane
-import com.intellij.ui.components.Magnificator
+import com.intellij.ui.components.*
 import org.intellij.images.actions.ToggleTransparencyChessboardAction
 import org.intellij.images.editor.ImageDocument
 import org.intellij.images.editor.ImageZoomModel
@@ -43,7 +41,7 @@ import java.beans.PropertyChangeListener
 import javax.swing.*
 import kotlin.math.max
 
-internal class ImageViewer(project: Project, val data: DisplayableData) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable {
+class ImageViewer(project: Project, val data: DisplayableData) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable {
 
     var modifiedData: DisplayableData = data
 
@@ -76,6 +74,12 @@ internal class ImageViewer(project: Project, val data: DisplayableData) : Dialog
             applyDataModifications()
         }
 
+    var isSidebarVisible: Boolean
+        get() = sidebar.isVisible
+        set(value) {
+            sidebar.isVisible = value
+        }
+
     private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
     private val imageComponent: ImageComponent = ImageComponent()
     private val internalZoomModel: ImageZoomModel = ImageZoomModelImpl(imageComponent)
@@ -83,9 +87,12 @@ internal class ImageViewer(project: Project, val data: DisplayableData) : Dialog
     private val resizeAdapter = ImageResizeAdapter()
     private val infoLabel: JLabel = JLabel()
     private var scrollPane: JScrollPane = JBScrollPane()
+    private var selectedBatchIndex: Int = 0
+    private var selectedChannelIndex: Int? = null
+    private lateinit var sidebar: JComponent
 
     init {
-        title = "Image Editor"  // TODO: replace with variable name, shape and dtype
+        title = "Image Viewer"  // TODO: replace with variable name, shape and dtype
 
         val options = OptionsManager.getInstance().options
         options.addPropertyChangeListener(optionsChangeListener, this)
@@ -129,7 +136,7 @@ internal class ImageViewer(project: Project, val data: DisplayableData) : Dialog
         } else {
             modifiedData
         }
-        val image = colormappedData.getBuffer()
+        val image = colormappedData.getBuffer(selectedBatchIndex, selectedChannelIndex)
         val document: ImageDocument = imageComponent.document
         document.value = image
         ActivityTracker.getInstance().inc()  // TODO: only update this toolbar
@@ -146,6 +153,7 @@ internal class ImageViewer(project: Project, val data: DisplayableData) : Dialog
     }
 
     override fun createCenterPanel(): JComponent {
+        val mainPanel = JPanel(BorderLayout())
         val view = ImageContainerPane(imageComponent)
         scrollPane = ScrollPaneFactory.createScrollPane(view)
         scrollPane.border = null
@@ -153,7 +161,12 @@ internal class ImageViewer(project: Project, val data: DisplayableData) : Dialog
         scrollPane.horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
         scrollPane.addMouseWheelListener(wheelAdapter)
         scrollPane.addComponentListener(resizeAdapter)
-        return scrollPane
+
+        sidebar = createSidebar()
+        mainPanel.add(scrollPane, BorderLayout.CENTER)
+        mainPanel.add(sidebar, BorderLayout.EAST)
+
+        return mainPanel
     }
 
     override fun createNorthPanel(): JComponent {
@@ -164,15 +177,56 @@ internal class ImageViewer(project: Project, val data: DisplayableData) : Dialog
         )
         val toolbarPanel = actionToolbar.component
 
+        val toggleSidebarAction = ToggleSidebarAction(this)
+        val toggleSidebarButton = actionManager.createActionToolbar(
+            "ToggleSidebar", DefaultActionGroup(toggleSidebarAction), true
+        ).component
+
         val topPanel = JPanel(BorderLayout())
         topPanel.add(toolbarPanel, BorderLayout.WEST)
-        topPanel.add(infoLabel, BorderLayout.EAST)
+        topPanel.add(toggleSidebarButton, BorderLayout.EAST)
+        topPanel.add(infoLabel, BorderLayout.CENTER)
 
         return topPanel
     }
 
     override fun createSouthPanel(): JComponent? {
         return null
+    }
+
+    private fun createSidebar(): JComponent {
+        val tabbedPane = JBTabbedPane()
+
+        val batchListModel = DefaultListModel<Int>().apply {
+            for (i in 0 until data.batchSize) addElement(i)
+        }
+        val batchList = JBList(batchListModel).apply {
+            selectionMode = ListSelectionModel.SINGLE_SELECTION
+            selectedIndex = selectedBatchIndex
+            addListSelectionListener {
+                selectedBatchIndex = selectedValue
+                updateImage()
+            }
+        }
+        val batchScrollPane = JBScrollPane(batchList)
+        tabbedPane.addTab("B", ImageViewerIcons.Layers, batchScrollPane)
+
+        val channelListModel = DefaultListModel<Any>().apply {
+            addElement("All")
+            for (i in 0 until data.channels) addElement(i)
+        }
+        val channelList = JBList(channelListModel).apply {
+            selectionMode = ListSelectionModel.SINGLE_SELECTION
+            selectedIndex = selectedChannelIndex ?: 0
+            addListSelectionListener {
+                selectedChannelIndex = if (selectedValue == "All") null else selectedValue as Int
+                updateImage()
+            }
+        }
+        val channelScrollPane = JBScrollPane(channelList)
+        tabbedPane.addTab("C", ImageViewerIcons.Channels, channelScrollPane)
+
+        return tabbedPane
     }
 
     override fun getDimensionServiceKey() = "com.github.srwi.pycharmpixelglance.dialogs.ImageViewer"
