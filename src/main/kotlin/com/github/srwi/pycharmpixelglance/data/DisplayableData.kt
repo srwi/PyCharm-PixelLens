@@ -76,8 +76,9 @@ class DisplayableData (
         val imageData = batch[batchIndex] as NDArray<Float, D3>
 
         val channelData = if (channel == null) {
-            imageData
+            imageData.deepCopy()
         } else {
+            // unsqueeze will create a copy
             imageData[0 until imageData.shape[0], 0 until imageData.shape[1], channel].unsqueeze(2)
         } as NDArray<Float, D3>
 
