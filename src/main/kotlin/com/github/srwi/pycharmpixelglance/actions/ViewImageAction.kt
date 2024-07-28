@@ -1,10 +1,10 @@
 package com.github.srwi.pycharmpixelglance.actions
 
+import com.github.srwi.pycharmpixelglance.dialogs.ImageViewer
 import com.github.srwi.pycharmpixelglance.imageProviders.NumpyImageProvider
 import com.github.srwi.pycharmpixelglance.imageProviders.PillowImageProvider
 import com.github.srwi.pycharmpixelglance.imageProviders.PytorchImageProvider
 import com.github.srwi.pycharmpixelglance.imageProviders.TensorflowImageProvider
-import com.github.srwi.pycharmpixelglance.dialogs.ImageViewer
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -14,7 +14,6 @@ import com.jetbrains.python.debugger.PyDebugValue
 class ViewImageAction : AnAction() {
 
     override fun actionPerformed(e: AnActionEvent) {
-        val project = e.project ?: return
         val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
         val frameAccessor = value.frameAccessor
         val typeQualifier = value.typeQualifier as String
@@ -32,5 +31,16 @@ class ViewImageAction : AnAction() {
 
     override fun getActionUpdateThread(): ActionUpdateThread {
         return ActionUpdateThread.EDT
+    }
+
+    override fun update(e: AnActionEvent) {
+        super.update(e)
+        val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
+        val typeQualifier = value.typeQualifier as String
+        val isSupported = when (typeQualifier) {
+            "numpy", "torch", "PIL.Image" -> true
+            else -> value.typeQualifier!!.startsWith("tensorflow")
+        }
+        e.presentation.isVisible = isSupported
     }
 }
