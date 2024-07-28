@@ -7,9 +7,9 @@ class NormalizeModification : ImageModification {
     override fun isApplicable(data: DisplayableData): Boolean = true
 
     override fun apply(data: DisplayableData): DisplayableData {
-        val min = data.image.min() ?: 0f
-        val max = data.image.max() ?: 255f
-        val normalized = (data.image - min) / (max - min) * 255f
+        val min = data.batch.min() ?: 0f
+        val max = data.batch.max() ?: 255f
+        val normalized = (data.batch - min) / (max - min) * 255f
         return DisplayableData(normalized)
     }
 }

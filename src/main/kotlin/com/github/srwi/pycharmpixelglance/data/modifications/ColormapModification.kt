@@ -11,16 +11,18 @@ class ColormapModification : ImageModification {
         data.channels == 1
 
     override fun apply(data: DisplayableData): DisplayableData {
-        val grayscaleImage = data.image.squeeze(2) as NDArray<Float, D2>
-        val coloredImage = mk.zeros<Float>(data.height, data.width, 3)
+        val grayscaleImage = data.batch.squeeze(3) as NDArray<Float, D3>
+        val coloredImage = mk.zeros<Float>(data.batchSize, data.height, data.width, 3)
 
-        for (i in 0 until data.height) {
-            for (j in 0 until data.width) {
-                val value = grayscaleImage[i, j] / 255f
-                val (r, g, b) = viridisColor(value)
-                coloredImage[i, j, 0] = r
-                coloredImage[i, j, 1] = g
-                coloredImage[i, j, 2] = b
+        for (b in 0 until data.batchSize) {
+            for (y in 0 until data.height) {
+                for (x in 0 until data.width) {
+                    val value = grayscaleImage[b, y, x] / 255f
+                    val (red, green, blue) = viridisColor(value)
+                    coloredImage[b, y, x, 0] = red
+                    coloredImage[b, y, x, 1] = green
+                    coloredImage[b, y, x, 2] = blue
+                }
             }
         }
 

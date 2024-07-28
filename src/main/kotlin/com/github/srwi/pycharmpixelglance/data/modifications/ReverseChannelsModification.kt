@@ -11,14 +11,16 @@ class ReverseChannelsModification : ImageModification {
         data.channels == 3 || data.channels == 4
 
     override fun apply(data: DisplayableData): DisplayableData {
-        val reversedImage = mk.zeros<Float>(data.height, data.width, data.channels)
-        for (i in 0 until data.height) {
-            for (j in 0 until data.width) {
-                reversedImage[i, j, 0] = data.image[i, j, 2]
-                reversedImage[i, j, 1] = data.image[i, j, 1]
-                reversedImage[i, j, 2] = data.image[i, j, 0]
-                if (data.channels == 4) {
-                    reversedImage[i, j, 3] = data.image[i, j, 3]
+        val reversedImage = mk.zeros<Float>(data.batchSize, data.height, data.width, data.channels)
+        for (b in 0 until data.batchSize) {
+            for (y in 0 until data.height) {
+                for (x in 0 until data.width) {
+                    reversedImage[b, y, x, 0] = data.batch[b, y, x, 2]
+                    reversedImage[b, y, x, 1] = data.batch[b, y, x, 1]
+                    reversedImage[b, y, x, 2] = data.batch[b, y, x, 0]
+                    if (data.channels == 4) {
+                        reversedImage[b, y, x, 3] = data.batch[b, y, x, 3]
+                    }
                 }
             }
         }

@@ -10,7 +10,7 @@ import java.awt.image.BufferedImage
 import java.awt.image.DataBufferByte
 
 class DisplayableData (
-    val image: NDArray<Float, D3>
+    val batch: NDArray<Float, D4>
 ) {
     companion object {
         fun fromNDArray(originalData: NDArray<Any, DN>, originalDataType: String): DisplayableData {
@@ -19,24 +19,25 @@ class DisplayableData (
             return DisplayableData(reshaped)
         }
 
-        private fun reshapeData(array: NDArray<Float, DN>): NDArray<Float, D3> {
-            // TODO: don't squeeze last dimensions as it is unlikely they will not have any meaning
-            // TODO: reshape to always have batch and channel dimensions
+        private fun reshapeData(array: NDArray<Float, DN>): NDArray<Float, D4> {
             when (array.shape.size) {
                 1, 2 -> {
+                    // Create width or channel dimension
                     val unsqueezed = array.unsqueeze(array.shape.size)
                     return reshapeData(unsqueezed)
                 }
                 3 -> {
-                    return array as NDArray<Float, D3>
+                    // Create batch dimension
+                    val unsqueezed = array.unsqueeze(0)
+                    return reshapeData(unsqueezed)
+                }
+                4 -> {
+                    return array as NDArray<Float, D4>
                 }
                 else -> {
+                    // Remove empty first dimension
                     if (array.shape[0] == 1) {
                         val squeezed = array.squeeze(0)
-                        return reshapeData(squeezed)
-                    }
-                    else if (array.shape[array.shape.size - 1] == 1) {
-                        val squeezed = array.squeeze(array.shape.size - 1)
                         return reshapeData(squeezed)
                     }
                 }
@@ -60,51 +61,55 @@ class DisplayableData (
         }
     }
 
-    private val ndims: Int get() = image.shape.size
+    val batchSize: Int get() = batch.shape[0]
 
-    val height: Int get() = image.shape[ndims - 3]
+    val height: Int get() = batch.shape[1]
 
-    val width: Int get() = image.shape[ndims - 2]
+    val width: Int get() = batch.shape[2]
 
-    val channels: Int get() = image.shape[ndims - 1]
+    val channels: Int get() = batch.shape[3]
 
-    fun getValue(x: Int, y: Int): MultiArray<Float, D1> {
-        return image[x, y]
-    }
+    fun getBuffer(batchIndex: Int = 0, channel: Int? = null): BufferedImage {
+        require(batchIndex in 0 until batchSize) { "Invalid batch index: $batchIndex" }
+        require(channel in 0 until channels || channel == null) { "Invalid channel index: $channel" }
 
-    fun getBuffer(): BufferedImage {
-        val bufferedImage = when (channels) {
-            // TODO: width and height are incorrect for transposed images causing wrong aspect ratio
+        val imageData = batch[batchIndex] as NDArray<Float, D3>
+
+        val channelData = if (channel == null) {
+            imageData
+        } else {
+            imageData[0 until imageData.shape[0], 0 until imageData.shape[1], channel].unsqueeze(2)
+        } as NDArray<Float, D3>
+
+        val bufferChannels = channelData.shape[2]
+        val bufferedImage = when (bufferChannels) {
             1 -> BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY)
             3 -> BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR)
             4 -> BufferedImage(width, height, BufferedImage.TYPE_4BYTE_ABGR)
-            else -> BufferedImage(100, 100, BufferedImage.TYPE_BYTE_GRAY)  // TODO: this is a placeholder for unsupported channels
+            else -> throw Exception("Unsupported number of channels: $channels")
         }
 
-        val intImage = image.asType<Int>().clip(0, 255).flatten()
-
-        when (channels) {
+        val intImage = channelData.clip(0f, 255f).asType<Byte>().flatten()
+        val buffer = (bufferedImage.raster.dataBuffer as DataBufferByte).data
+        when (bufferChannels) {
             1 -> {
-                val buffer = (bufferedImage.raster.dataBuffer as DataBufferByte).data
                 for (i in buffer.indices) {
-                    buffer[i] = intImage[i].toByte()
+                    buffer[i] = intImage[i]
                 }
             }
             3 -> {
-                val buffer = (bufferedImage.raster.dataBuffer as DataBufferByte).data
                 for (i in 0 until height * width) {
-                    buffer[i * 3] = intImage[i * 3 + 2].toByte()     // Blue
-                    buffer[i * 3 + 1] = intImage[i * 3 + 1].toByte() // Green
-                    buffer[i * 3 + 2] = intImage[i * 3].toByte()     // Red
+                    buffer[i * 3] = intImage[i * 3 + 2]     // Blue
+                    buffer[i * 3 + 1] = intImage[i * 3 + 1] // Green
+                    buffer[i * 3 + 2] = intImage[i * 3]     // Red
                 }
             }
             4 -> {
-                val buffer = (bufferedImage.raster.dataBuffer as DataBufferByte).data
                 for (i in 0 until height * width) {
-                    buffer[i * 4] = intImage[i * 4 + 3].toByte()     // Alpha
-                    buffer[i * 4 + 1] = intImage[i * 4 + 2].toByte() // Blue
-                    buffer[i * 4 + 2] = intImage[i * 4 + 1].toByte() // Green
-                    buffer[i * 4 + 3] = intImage[i * 4].toByte()     // Red
+                    buffer[i * 4] = intImage[i * 4 + 3]     // Alpha
+                    buffer[i * 4 + 1] = intImage[i * 4 + 2] // Blue
+                    buffer[i * 4 + 2] = intImage[i * 4 + 1] // Green
+                    buffer[i * 4 + 3] = intImage[i * 4]     // Red
                 }
             }
         }

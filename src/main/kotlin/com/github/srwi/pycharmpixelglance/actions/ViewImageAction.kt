@@ -37,6 +37,7 @@ class ViewImageAction : AnAction() {
         super.update(e)
         val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
         val typeQualifier = value.typeQualifier as String
+        // TODO: check for shape compatibility
         val isSupported = when (typeQualifier) {
             "numpy", "torch", "PIL.Image" -> true
             else -> value.typeQualifier!!.startsWith("tensorflow")

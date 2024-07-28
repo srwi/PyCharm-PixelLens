@@ -6,7 +6,8 @@ class TransposeModification : ImageModification {
     override fun isApplicable(data: DisplayableData): Boolean = true
 
     override fun apply(data: DisplayableData): DisplayableData {
-        val newData = data.image.transpose(1, 2, 0)
+        // BCHW -> BHWC
+        val newData = data.batch.transpose(0, 2, 3, 1)
         return DisplayableData(newData)
     }
 }
