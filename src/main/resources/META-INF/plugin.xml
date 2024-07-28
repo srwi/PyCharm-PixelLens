@@ -11,7 +11,7 @@
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <actions>
-        <action id="ViewImageAction" class="com.github.srwi.pycharmpixelglance.actions.ViewImageAction" text="View as Image">
+        <action id="ViewImageAction" class="com.github.srwi.pycharmpixelglance.actions.ViewAsImageAction" text="View as Image">
             <add-to-group group-id="XDebugger.ValueGroup" anchor="before" relative-to-action="PyDebugger.ViewArray"/>
         </action>
     </actions>

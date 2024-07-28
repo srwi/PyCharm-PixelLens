@@ -11,9 +11,10 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.xdebugger.impl.ui.tree.actions.XDebuggerTreeActionBase
 import com.jetbrains.python.debugger.PyDebugValue
 
-class ViewImageAction : AnAction() {
+class ViewAsImageAction : AnAction() {
 
     override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
         val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
         val frameAccessor = value.frameAccessor
         val typeQualifier = value.typeQualifier as String
@@ -25,7 +26,7 @@ class ViewImageAction : AnAction() {
             else -> throw IllegalArgumentException("Unsupported type qualifier: $typeQualifier")
         }
         val displayableData = imageProvider.getDataByVariableName(frameAccessor, value.name)
-        val viewer = ImageViewer(displayableData)
+        val viewer = ImageViewer(project, displayableData)
         viewer.show()
     }
 

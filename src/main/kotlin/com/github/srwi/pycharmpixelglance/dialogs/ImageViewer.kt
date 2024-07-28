@@ -10,6 +10,8 @@ import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DataProvider
 import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.components.JBLayeredPane
@@ -41,7 +43,7 @@ import java.beans.PropertyChangeListener
 import javax.swing.*
 import kotlin.math.max
 
-internal class ImageViewer(val data: DisplayableData) : PersistentDialogWrapper(), ImageComponentDecorator, DataProvider, Disposable {
+internal class ImageViewer(project: Project, val data: DisplayableData) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable {
 
     var modifiedData: DisplayableData = data
 
@@ -172,6 +174,10 @@ internal class ImageViewer(val data: DisplayableData) : PersistentDialogWrapper(
     override fun createSouthPanel(): JComponent? {
         return null
     }
+
+    override fun getDimensionServiceKey() = "com.github.srwi.pycharmpixelglance.dialogs.ImageViewer"
+
+    override fun getPreferredSize() = Dimension(800, 600)
 
     private fun createCustomActionGroup(): ActionGroup {
         return DefaultActionGroup().apply {
