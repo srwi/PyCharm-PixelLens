@@ -33,8 +33,10 @@ internal class ToggleApplyColormapAction : DumbAwareToggleAction() {
         super.update(e)
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            e.presentation.isEnabled = imageViewer.modifiedData.applyColormapApplicable
-            if (!e.presentation.isEnabled) {
+            val selectedChannel = imageViewer.selectedChannelIndex
+            val newState = selectedChannel != null
+            e.presentation.isEnabled = newState
+            if (!newState) {
                 setSelected(e, false)
             }
         }

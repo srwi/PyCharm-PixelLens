@@ -1,6 +1,6 @@
 package com.github.srwi.pycharmpixelglance.imageProviders
 
-import com.github.srwi.pycharmpixelglance.data.DisplayableData
+import com.github.srwi.pycharmpixelglance.data.Batch
 import com.jetbrains.python.debugger.PyFrameAccessor
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -20,7 +20,7 @@ data class Metadata(val shape: List<Int>, val dtype: String)
 data class Payload(val imageData: String, val metadata: Metadata)
 
 abstract class ImageProvider {
-    fun getDataByVariableName(frameAccessor: PyFrameAccessor, name: String) : DisplayableData {
+    fun getDataByVariableName(frameAccessor: PyFrameAccessor, name: String) : Batch {
         val payload = getPayload(frameAccessor, name)
         val image = processImageData(payload)
         return image
@@ -31,7 +31,7 @@ abstract class ImageProvider {
         return json.decodeFromString<Payload>(jsonPayloadString)
     }
 
-    private fun processImageData(payload: Payload): DisplayableData {
+    private fun processImageData(payload: Payload): Batch {
         val imageBase64 = payload.imageData
         val shape = payload.metadata.shape.toIntArray()
         val dtype = payload.metadata.dtype
@@ -120,7 +120,7 @@ abstract class ImageProvider {
             else -> multikArray.reshape(shape[0], shape[1], shape[2], shape[3], *shape.slice(4 until shape.size).toIntArray())
         } as NDArray<Any, DN>
 
-        return DisplayableData.fromNDArray(reshapedArray, dtype)
+        return Batch.fromNDArray(reshapedArray, dtype)
     }
 
     object Float16 {

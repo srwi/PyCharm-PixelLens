@@ -1,7 +1,7 @@
 package com.github.srwi.pycharmpixelglance.dialogs
 
 import com.github.srwi.pycharmpixelglance.actions.*
-import com.github.srwi.pycharmpixelglance.data.DisplayableData
+import com.github.srwi.pycharmpixelglance.data.Batch
 import com.github.srwi.pycharmpixelglance.icons.ImageViewerIcons
 import com.intellij.icons.AllIcons
 import com.intellij.ide.ActivityTracker
@@ -36,42 +36,44 @@ import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import java.awt.event.MouseWheelEvent
 import java.awt.event.MouseWheelListener
+import java.awt.image.BufferedImage
 import java.beans.PropertyChangeEvent
 import java.beans.PropertyChangeListener
 import javax.swing.*
 import kotlin.math.max
 
-class ImageViewer(project: Project, val data: DisplayableData) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable {
-
-    var modifiedData: DisplayableData = data
-
+class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable {
     // TODO: read default from options
-    var normalizeEnabled: Boolean = false
-        get() = field
+    var normalizeSelected: Boolean = data.normalized
         set(value) {
+            if (field == value) return
             field = value
-            applyDataModifications()
+            data.normalized = value
+            updateImage()
         }
 
-    var transposeEnabled: Boolean = false
-        get() = field
+    var transposeSelected: Boolean = data.channelsFirst
         set(value) {
+            if (field == value) return
             field = value
-            applyDataModifications()
+            data.channelsFirst = value
+            updateImage()
         }
 
-    var reverseChannelsEnabled: Boolean = false
-        get() = field
+    var reverseChannelsEnabled: Boolean = data.reversedChannels
         set(value) {
+            if (field == value) return
             field = value
-            applyDataModifications()
+            data.reversedChannels = value
+            updateImage()
         }
 
-    var applyColormapEnabled: Boolean = false
-        get() = field
+    var applyColormapEnabled: Boolean = data.grayscaleColormap
         set(value) {
+            if (field == value) return
             field = value
-            applyDataModifications()
+            data.grayscaleColormap = value
+            updateImage()
         }
 
     var isSidebarVisible: Boolean
@@ -80,6 +82,10 @@ class ImageViewer(project: Project, val data: DisplayableData) : DialogWrapper(p
             sidebar.isVisible = value
         }
 
+    var selectedBatchIndex: Int = 0
+
+    var selectedChannelIndex: Int? = null
+
     private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
     private val imageComponent: ImageComponent = ImageComponent()
     private val internalZoomModel: ImageZoomModel = ImageZoomModelImpl(imageComponent)
@@ -87,8 +93,6 @@ class ImageViewer(project: Project, val data: DisplayableData) : DialogWrapper(p
     private val resizeAdapter = ImageResizeAdapter()
     private val infoLabel: JLabel = JLabel()
     private var scrollPane: JScrollPane = JBScrollPane()
-    private var selectedBatchIndex: Int = 0
-    private var selectedChannelIndex: Int? = null
     private lateinit var sidebar: JComponent
 
     init {
@@ -111,34 +115,17 @@ class ImageViewer(project: Project, val data: DisplayableData) : DialogWrapper(p
 
         init()
 
-        updateImage()
+        updateImage(repaint = false)
         smartZoom()
     }
 
-    private fun applyDataModifications() {
-        modifiedData = data
-        if (transposeEnabled) {
-            modifiedData = modifiedData.transpose()
-        }
-        if (normalizeEnabled) {
-            modifiedData = modifiedData.normalize()
-        }
-        if (reverseChannelsEnabled) {
-            modifiedData = modifiedData.reverseChannels()
-        }
-        updateImage()
-        repaintImage()
-    }
-
-    private fun updateImage() {
-        val colormappedData = if (applyColormapEnabled) {
-            modifiedData.applyColormap()
-        } else {
-            modifiedData
-        }
-        val image = colormappedData.getBuffer(selectedBatchIndex, selectedChannelIndex)
+    private fun updateImage(repaint: Boolean = true) {
+        val image = data.getImage(selectedBatchIndex, selectedChannelIndex)
         val document: ImageDocument = imageComponent.document
         document.value = image
+        if (repaint) {
+            repaintImage()
+        }
         ActivityTracker.getInstance().inc()  // TODO: only update this toolbar
     }
 
