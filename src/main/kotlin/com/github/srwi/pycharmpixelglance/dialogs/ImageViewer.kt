@@ -23,7 +23,6 @@ import org.intellij.images.editor.actions.ZoomInAction
 import org.intellij.images.editor.actions.ZoomOutAction
 import org.intellij.images.options.Options
 import org.intellij.images.options.OptionsManager
-import org.intellij.images.thumbnail.actionSystem.ThumbnailViewActions
 import org.intellij.images.ui.ImageComponent
 import org.intellij.images.ui.ImageComponentDecorator
 import java.awt.BorderLayout
@@ -34,7 +33,6 @@ import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import java.awt.event.MouseWheelEvent
 import java.awt.event.MouseWheelListener
-import java.awt.image.BufferedImage
 import java.beans.PropertyChangeEvent
 import java.beans.PropertyChangeListener
 import javax.swing.*
@@ -56,6 +54,7 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
             if (field == value) return
             field = value
             data.channelsFirst = value
+            sidebar.updateChannelList(data.channels)  // TODO: sidebar should subscribe to data event instead
             updateImage()
         }
 
@@ -75,38 +74,30 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
             updateImage()
         }
 
+    var activeSidebar: SidebarType? = null
+        set(value) {
+            field = value
+            if (value != null) {
+                sidebar.showPanel(value)
+                setSidebarVisibility(true)
+            } else {
+                setSidebarVisibility(false)
+            }
+        }
+
     var selectedBatchIndex: Int = 0
 
     var selectedChannelIndex: Int? = null
 
     private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
     private val imageComponent: ImageComponent = ImageComponent()
-    private val internalZoomModel: ImageZoomModel = ImageZoomModelImpl(imageComponent)
+    private val internalZoomModel: ImageZoomModelImpl = ImageZoomModelImpl(imageComponent)
     private val wheelAdapter = ImageWheelAdapter()
     private val resizeAdapter = ImageResizeAdapter()
     private var scrollPane: JScrollPane = JBScrollPane()
-    private var currentSidebar: JComponent? = null
-    private lateinit var batchSidebar: JComponent
-    private lateinit var channelSidebar: JComponent
+
+    private lateinit var sidebar: Sidebar
     private lateinit var sidebarPanel: JPanel
-
-    private val toggleBatchSidebarAction = object : ToggleAction("Toggle Batch Sidebar", "", ImageViewerIcons.Layers) {
-        override fun isSelected(e: AnActionEvent) = currentSidebar == batchSidebar
-        override fun setSelected(e: AnActionEvent, state: Boolean) = toggleSidebar(state, batchSidebar)
-
-        override fun getActionUpdateThread(): ActionUpdateThread {
-            return ActionUpdateThread.EDT
-        }
-    }
-
-    private val toggleChannelSidebarAction = object : ToggleAction("Toggle Channel Sidebar", "", ImageViewerIcons.Channels) {
-        override fun isSelected(e: AnActionEvent) = currentSidebar == channelSidebar
-        override fun setSelected(e: AnActionEvent, state: Boolean) = toggleSidebar(state, channelSidebar)
-
-        override fun getActionUpdateThread(): ActionUpdateThread {
-            return ActionUpdateThread.EDT
-        }
-    }
 
     init {
         title = "Image Viewer"  // TODO: replace with variable name, shape and dtype
@@ -137,20 +128,23 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
         val image = data.getImage(selectedBatchIndex, selectedChannelIndex)
         val document: ImageDocument = imageComponent.document
         document.value = image
-        if (repaint) {
-            repaintImage()
-        }
+        if (repaint) repaintImage()
         ActivityTracker.getInstance().inc()  // TODO: only update this toolbar
     }
 
+    private fun setSidebarVisibility(visible: Boolean) {
+        sidebarPanel.isVisible = visible
+        sidebarPanel.revalidate()
+        sidebarPanel.repaint()
+    }
+
     private fun smartZoom() {
-        val zoomModel = internalZoomModel as ImageZoomModelImpl
+        val zoomModel = internalZoomModel
         zoomModel.smartZoom(scrollPane.viewport.width, scrollPane.viewport.height)
-        repaintImage()
     }
 
     private fun repaintImage() {
-        contentPane.repaint()
+        internalZoomModel.repaintImageComponent()
     }
 
     override fun createCenterPanel(): JComponent {
@@ -159,8 +153,6 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
             add(createImagePanel(), BorderLayout.CENTER)
             add(createRightPanel(), BorderLayout.EAST)
         }
-        batchSidebar = createBatchSidebar()
-        channelSidebar = createChannelSidebar()
         return contentPanel
     }
 
@@ -169,13 +161,27 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
     }
 
     private fun createRightPanel(): JComponent {
-        val rightPanel = JPanel(BorderLayout())
-        sidebarPanel = JPanel(BorderLayout()).apply {
-            isVisible = false
-            preferredSize = Dimension(200, 0)
+        sidebar = Sidebar()
+        sidebar.updateChannelList(data.channels)
+        sidebar.setSelectedBatchIndex(selectedBatchIndex)
+        sidebar.setSelectedChannelIndex(selectedChannelIndex)
+
+        sidebar.onBatchIndexChanged { index ->
+            selectedBatchIndex = index
+            updateImage()
         }
-        rightPanel.add(sidebarPanel, BorderLayout.CENTER)
-        return rightPanel
+
+        sidebar.onChannelIndexChanged { index ->
+            selectedChannelIndex = index
+            updateImage()
+        }
+
+        sidebarPanel = JPanel(BorderLayout()).apply {
+            add(sidebar.getComponent(), BorderLayout.CENTER)
+            isVisible = false
+        }
+
+        return sidebarPanel
     }
 
     override fun createNorthPanel(): JComponent {
@@ -191,8 +197,8 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
         }
 
         val sidebarToggleGroup = DefaultActionGroup().apply {
-            add(toggleBatchSidebarAction)
-            add(toggleChannelSidebarAction)
+            add(ToggleBatchSidebarAction())
+            add(ToggleChannelSidebarAction())
         }
         val sidebarToggleToolbar = actionManager.createActionToolbar(
             "SidebarToolbar", sidebarToggleGroup, true
@@ -203,12 +209,10 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
         }
 
         val twoSideComponent = TwoSideComponent(toolbarPanel, sidebarToggleToolbar)
-        val topPanel = JPanel(BorderLayout()).apply {
+        return JPanel(BorderLayout()).apply {
             border = BorderFactory.createEmptyBorder()
             add(twoSideComponent, BorderLayout.CENTER)
         }
-
-        return topPanel
     }
 
     override fun createSouthPanel(): JComponent? {
@@ -226,65 +230,6 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
         scrollPane.addComponentListener(resizeAdapter)
         return scrollPane
     }
-
-    private fun createBatchSidebar(): JComponent {
-        val batchListModel = DefaultListModel<Int>().apply {
-            for (i in 0 until data.batchSize) addElement(i)
-        }
-        val batchList = JBList(batchListModel).apply {
-            selectionMode = ListSelectionModel.SINGLE_SELECTION
-            selectedIndex = selectedBatchIndex
-            addListSelectionListener {
-                selectedBatchIndex = selectedValue
-                updateImage()
-            }
-        }
-        val batchSidebarPanel = JPanel(BorderLayout()).apply {
-            add(JLabel("Batch Index"), BorderLayout.NORTH)
-            add(JBScrollPane(batchList), BorderLayout.CENTER)
-        }
-        return batchSidebarPanel
-    }
-
-    private fun createChannelSidebar(): JComponent {
-        val channelListModel = DefaultListModel<Any>().apply {
-            if (data.channels == 3 || data.channels == 4) addElement("All")
-            for (i in 0 until data.channels) addElement(i)
-        }
-        val channelList = JBList(channelListModel).apply {
-            selectionMode = ListSelectionModel.SINGLE_SELECTION
-            selectedIndex = selectedChannelIndex ?: 0
-            addListSelectionListener {
-                selectedChannelIndex = if (selectedValue == "All") null else selectedValue as Int
-                updateImage()
-            }
-        }
-        val channelSidebarPanel = JPanel(BorderLayout()).apply {
-            add(JLabel("Channel Index"), BorderLayout.NORTH)
-            add(JBScrollPane(channelList), BorderLayout.CENTER)
-        }
-        return channelSidebarPanel
-    }
-
-    private fun toggleSidebar(state: Boolean, sidebar: JComponent) {
-        if (state) {
-            if (currentSidebar != sidebar) {
-                currentSidebar?.let { sidebarPanel.remove(it) }
-                sidebarPanel.add(sidebar, BorderLayout.CENTER)
-                currentSidebar = sidebar
-            }
-            sidebarPanel.isVisible = true
-        } else {
-            if (currentSidebar == sidebar) {
-                sidebarPanel.remove(sidebar)
-                currentSidebar = null
-                sidebarPanel.isVisible = false
-            }
-        }
-        sidebarPanel.revalidate()
-        sidebarPanel.repaint()
-    }
-
 
     override fun getDimensionServiceKey() = "com.github.srwi.pycharmpixelglance.dialogs.ImageViewer"
 

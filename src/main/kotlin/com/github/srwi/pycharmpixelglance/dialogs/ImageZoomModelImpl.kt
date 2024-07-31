@@ -24,10 +24,15 @@ class ImageZoomModelImpl(private val imageComponent: ImageComponent) : ImageZoom
         }
     }
 
-    private fun repaintImageComponent() {
-        updateImageComponentSize()
-        imageComponent.revalidate()
-        imageComponent.repaint()
+    fun repaintImageComponent() {
+        val image = imageComponent.document.value
+        image?.let {
+            val newWidth = (it.width * zoomFactor).toInt()
+            val newHeight = (it.height * zoomFactor).toInt()
+            imageComponent.canvasSize = Dimension(newWidth, newHeight)
+            imageComponent.revalidate()
+            imageComponent.repaint()
+        }
     }
 
     override fun fitZoomToWindow() {
@@ -62,7 +67,6 @@ class ImageZoomModelImpl(private val imageComponent: ImageComponent) : ImageZoom
         }
 
         setZoomFactor(1.0)
-        repaintImageComponent()
         zoomLevelChanged = true
     }
 
@@ -122,14 +126,5 @@ class ImageZoomModelImpl(private val imageComponent: ImageComponent) : ImageZoom
 
     override fun isZoomLevelChanged(): Boolean {
         return zoomLevelChanged
-    }
-
-    private fun updateImageComponentSize() {
-        val image = imageComponent.document.value
-        image?.let {
-            val newWidth = (it.width * zoomFactor).toInt()
-            val newHeight = (it.height * zoomFactor).toInt()
-            imageComponent.canvasSize = Dimension(newWidth, newHeight)
-        }
     }
 }
