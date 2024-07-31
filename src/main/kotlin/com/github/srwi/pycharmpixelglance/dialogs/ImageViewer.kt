@@ -6,15 +6,13 @@ import com.github.srwi.pycharmpixelglance.icons.ImageViewerIcons
 import com.intellij.icons.AllIcons
 import com.intellij.ide.ActivityTracker
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.actionSystem.ActionGroup
-import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.DataProvider
-import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.components.*
+import com.intellij.util.ui.JBUI
 import org.intellij.images.actions.ToggleTransparencyChessboardAction
 import org.intellij.images.editor.ImageDocument
 import org.intellij.images.editor.ImageZoomModel
@@ -40,6 +38,7 @@ import java.awt.image.BufferedImage
 import java.beans.PropertyChangeEvent
 import java.beans.PropertyChangeListener
 import javax.swing.*
+import javax.swing.border.Border
 import kotlin.math.max
 
 class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable {
@@ -76,12 +75,6 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
             updateImage()
         }
 
-    var isSidebarVisible: Boolean
-        get() = sidebar.isVisible
-        set(value) {
-            sidebar.isVisible = value
-        }
-
     var selectedBatchIndex: Int = 0
 
     var selectedChannelIndex: Int? = null
@@ -91,12 +84,33 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
     private val internalZoomModel: ImageZoomModel = ImageZoomModelImpl(imageComponent)
     private val wheelAdapter = ImageWheelAdapter()
     private val resizeAdapter = ImageResizeAdapter()
-    private val infoLabel: JLabel = JLabel()
     private var scrollPane: JScrollPane = JBScrollPane()
-    private lateinit var sidebar: JComponent
+    private var currentSidebar: JComponent? = null
+    private lateinit var batchSidebar: JComponent
+    private lateinit var channelSidebar: JComponent
+    private lateinit var sidebarPanel: JPanel
+
+    private val toggleBatchSidebarAction = object : ToggleAction("Toggle Batch Sidebar", "", ImageViewerIcons.Layers) {
+        override fun isSelected(e: AnActionEvent) = currentSidebar == batchSidebar
+        override fun setSelected(e: AnActionEvent, state: Boolean) = toggleSidebar(state, batchSidebar)
+
+        override fun getActionUpdateThread(): ActionUpdateThread {
+            return ActionUpdateThread.EDT
+        }
+    }
+
+    private val toggleChannelSidebarAction = object : ToggleAction("Toggle Channel Sidebar", "", ImageViewerIcons.Channels) {
+        override fun isSelected(e: AnActionEvent) = currentSidebar == channelSidebar
+        override fun setSelected(e: AnActionEvent, state: Boolean) = toggleSidebar(state, channelSidebar)
+
+        override fun getActionUpdateThread(): ActionUpdateThread {
+            return ActionUpdateThread.EDT
+        }
+    }
 
     init {
         title = "Image Viewer"  // TODO: replace with variable name, shape and dtype
+        isModal = false
 
         val options = OptionsManager.getInstance().options
         options.addPropertyChangeListener(optionsChangeListener, this)
@@ -140,7 +154,69 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
     }
 
     override fun createCenterPanel(): JComponent {
-        val mainPanel = JPanel(BorderLayout())
+        val contentPanel = JPanel(BorderLayout()).apply {
+            border = BorderFactory.createEmptyBorder()
+            add(createImagePanel(), BorderLayout.CENTER)
+            add(createRightPanel(), BorderLayout.EAST)
+        }
+        batchSidebar = createBatchSidebar()
+        channelSidebar = createChannelSidebar()
+        return contentPanel
+    }
+
+    override fun createContentPaneBorder(): Border {
+        return JBUI.Borders.empty(5)
+    }
+
+    private fun createRightPanel(): JComponent {
+        val rightPanel = JPanel(BorderLayout())
+        sidebarPanel = JPanel(BorderLayout()).apply {
+            isVisible = false
+            preferredSize = Dimension(200, 0)
+        }
+        rightPanel.add(sidebarPanel, BorderLayout.CENTER)
+        return rightPanel
+    }
+
+    override fun createNorthPanel(): JComponent {
+        val actionManager = ActionManager.getInstance()
+        val actionGroup = createCustomActionGroup()
+        val actionToolbar = actionManager.createActionToolbar(
+            "MainToolbar", actionGroup, true
+        ).apply {
+            setReservePlaceAutoPopupIcon(false)
+        }
+        val toolbarPanel = actionToolbar.component.apply {
+            border = BorderFactory.createEmptyBorder()
+        }
+
+        val sidebarToggleGroup = DefaultActionGroup().apply {
+            add(toggleBatchSidebarAction)
+            add(toggleChannelSidebarAction)
+        }
+        val sidebarToggleToolbar = actionManager.createActionToolbar(
+            "SidebarToolbar", sidebarToggleGroup, true
+        ).apply {
+            setReservePlaceAutoPopupIcon(false)
+        }.component.apply {
+            border = BorderFactory.createEmptyBorder()
+        }
+
+        val twoSideComponent = TwoSideComponent(toolbarPanel, sidebarToggleToolbar)
+        val topPanel = JPanel(BorderLayout()).apply {
+            border = BorderFactory.createEmptyBorder()
+            add(twoSideComponent, BorderLayout.CENTER)
+        }
+
+        return topPanel
+    }
+
+    override fun createSouthPanel(): JComponent? {
+        // TODO: add status bar
+        return null
+    }
+
+    private fun createImagePanel(): JComponent {
         val view = ImageContainerPane(imageComponent)
         scrollPane = ScrollPaneFactory.createScrollPane(view)
         scrollPane.border = null
@@ -148,42 +224,10 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
         scrollPane.horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
         scrollPane.addMouseWheelListener(wheelAdapter)
         scrollPane.addComponentListener(resizeAdapter)
-
-        sidebar = createSidebar()
-        mainPanel.add(scrollPane, BorderLayout.CENTER)
-        mainPanel.add(sidebar, BorderLayout.EAST)
-
-        return mainPanel
+        return scrollPane
     }
 
-    override fun createNorthPanel(): JComponent {
-        val actionManager = ActionManager.getInstance()
-        val actionGroup = createCustomActionGroup()
-        val actionToolbar = actionManager.createActionToolbar(
-            ImageEditorActions.ACTION_PLACE, actionGroup, true
-        )
-        val toolbarPanel = actionToolbar.component
-
-        val toggleSidebarAction = ToggleSidebarAction(this)
-        val toggleSidebarButton = actionManager.createActionToolbar(
-            "ToggleSidebar", DefaultActionGroup(toggleSidebarAction), true
-        ).component
-
-        val topPanel = JPanel(BorderLayout())
-        topPanel.add(toolbarPanel, BorderLayout.WEST)
-        topPanel.add(toggleSidebarButton, BorderLayout.EAST)
-        topPanel.add(infoLabel, BorderLayout.CENTER)
-
-        return topPanel
-    }
-
-    override fun createSouthPanel(): JComponent? {
-        return null
-    }
-
-    private fun createSidebar(): JComponent {
-        val tabbedPane = JBTabbedPane()
-
+    private fun createBatchSidebar(): JComponent {
         val batchListModel = DefaultListModel<Int>().apply {
             for (i in 0 until data.batchSize) addElement(i)
         }
@@ -195,11 +239,16 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
                 updateImage()
             }
         }
-        val batchScrollPane = JBScrollPane(batchList)
-        tabbedPane.addTab("B", ImageViewerIcons.Layers, batchScrollPane)
+        val batchSidebarPanel = JPanel(BorderLayout()).apply {
+            add(JLabel("Batch Index"), BorderLayout.NORTH)
+            add(JBScrollPane(batchList), BorderLayout.CENTER)
+        }
+        return batchSidebarPanel
+    }
 
+    private fun createChannelSidebar(): JComponent {
         val channelListModel = DefaultListModel<Any>().apply {
-            addElement("All")
+            if (data.channels == 3 || data.channels == 4) addElement("All")
             for (i in 0 until data.channels) addElement(i)
         }
         val channelList = JBList(channelListModel).apply {
@@ -210,11 +259,32 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
                 updateImage()
             }
         }
-        val channelScrollPane = JBScrollPane(channelList)
-        tabbedPane.addTab("C", ImageViewerIcons.Channels, channelScrollPane)
-
-        return tabbedPane
+        val channelSidebarPanel = JPanel(BorderLayout()).apply {
+            add(JLabel("Channel Index"), BorderLayout.NORTH)
+            add(JBScrollPane(channelList), BorderLayout.CENTER)
+        }
+        return channelSidebarPanel
     }
+
+    private fun toggleSidebar(state: Boolean, sidebar: JComponent) {
+        if (state) {
+            if (currentSidebar != sidebar) {
+                currentSidebar?.let { sidebarPanel.remove(it) }
+                sidebarPanel.add(sidebar, BorderLayout.CENTER)
+                currentSidebar = sidebar
+            }
+            sidebarPanel.isVisible = true
+        } else {
+            if (currentSidebar == sidebar) {
+                sidebarPanel.remove(sidebar)
+                currentSidebar = null
+                sidebarPanel.isVisible = false
+            }
+        }
+        sidebarPanel.revalidate()
+        sidebarPanel.repaint()
+    }
+
 
     override fun getDimensionServiceKey() = "com.github.srwi.pycharmpixelglance.dialogs.ImageViewer"
 
@@ -378,7 +448,7 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
     }
 
     override fun isEnabledForActionPlace(place: String): Boolean {
-        return ThumbnailViewActions.ACTION_PLACE != place
+        return true
     }
 
     override fun setGridVisible(visible: Boolean) {
