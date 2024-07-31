@@ -25,8 +25,8 @@ class ViewAsImageAction : AnAction() {
             typeQualifier.startsWith("tensorflow") -> TensorflowImageProvider()
             else -> throw IllegalArgumentException("Unsupported type qualifier: $typeQualifier")
         }
-        val displayableData = imageProvider.getDataByVariableName(frameAccessor, value.name)
-        val viewer = ImageViewer(project, displayableData)
+        val data = imageProvider.getDataByVariableName(frameAccessor, value.name)
+        val viewer = ImageViewer(project, data)
         viewer.show()
     }
 

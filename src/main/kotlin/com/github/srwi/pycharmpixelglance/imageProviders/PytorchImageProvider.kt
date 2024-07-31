@@ -16,7 +16,8 @@ class PytorchImageProvider : ImageProvider() {
             __tmp_image_bytes = bytes(int(b) for b in __tmp_image_bytes)
             __tmp_image_base64 = __tmp_base64.b64encode(__tmp_image_bytes).decode('utf-8')
             __tmp_payload = {
-                'imageData': __tmp_image_base64,
+                'name': '$name',
+                'data': __tmp_image_base64,
                 'metadata': {
                     'shape': list(__tmp_image_tensor.shape),
                     'dtype': str(__tmp_image_tensor.dtype)[6:]  # dtype starts with "torch."

@@ -1,8 +1,8 @@
 package com.github.srwi.pycharmpixelglance.dialogs
 
 import com.github.srwi.pycharmpixelglance.actions.*
-import com.github.srwi.pycharmpixelglance.data.Batch
 import com.github.srwi.pycharmpixelglance.icons.ImageViewerIcons
+import com.github.srwi.pycharmpixelglance.imageProviders.Batch
 import com.intellij.icons.AllIcons
 import com.intellij.ide.ActivityTracker
 import com.intellij.openapi.Disposable
@@ -47,38 +47,38 @@ import javax.swing.*
 import javax.swing.border.Border
 import kotlin.math.max
 
-class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable {
+class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable {
     // TODO: read default from options
-    var normalizeSelected: Boolean = data.normalized
+    var normalizeSelected: Boolean = batch.data.normalized
         set(value) {
             if (field == value) return
             field = value
-            data.normalized = value
+            batch.data.normalized = value
             updateImage()
         }
 
-    var transposeSelected: Boolean = data.channelsFirst
+    var transposeSelected: Boolean = batch.data.channelsFirst
         set(value) {
             if (field == value) return
             field = value
-            data.channelsFirst = value
-            sidebar.updateChannelList(data.channels)  // TODO: sidebar should subscribe to data event instead
+            batch.data.channelsFirst = value
+            sidebar.updateChannelList(batch.data.channels)  // TODO: sidebar should subscribe to data event instead
             updateImage()
         }
 
-    var reverseChannelsEnabled: Boolean = data.reversedChannels
+    var reverseChannelsEnabled: Boolean = batch.data.reversedChannels
         set(value) {
             if (field == value) return
             field = value
-            data.reversedChannels = value
+            batch.data.reversedChannels = value
             updateImage()
         }
 
-    var applyColormapEnabled: Boolean = data.grayscaleColormap
+    var applyColormapEnabled: Boolean = batch.data.grayscaleColormap
         set(value) {
             if (field == value) return
             field = value
-            data.grayscaleColormap = value
+            batch.data.grayscaleColormap = value
             updateImage()
         }
 
@@ -108,7 +108,7 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
     private lateinit var sidebarPanel: JPanel
 
     init {
-        title = "Image Viewer"  // TODO: replace with variable name, shape and dtype
+        title = createTitle()
         isModal = false
 
         val options = OptionsManager.getInstance().options
@@ -132,8 +132,12 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
         smartZoom()
     }
 
+    private fun createTitle(): String {
+        return "${batch.name} (${batch.metadata.shape.joinToString()}) ${batch.metadata.dtype}"
+    }
+
     private fun updateImage(repaint: Boolean = true) {
-        val image = data.getImage(selectedBatchIndex, selectedChannelIndex)
+        val image = batch.data.getImage(selectedBatchIndex, selectedChannelIndex)
         val document: ImageDocument = imageComponent.document
         document.value = image
         if (repaint) repaintImage()
@@ -170,8 +174,8 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
 
     private fun createRightPanel(): JComponent {
         sidebar = Sidebar()
-        sidebar.updateChannelList(data.channels)
-        sidebar.updateBatchList(data.batchSize)
+        sidebar.updateChannelList(batch.data.channels)
+        sidebar.updateBatchList(batch.data.batchSize)
         sidebar.setSelectedBatchIndex(selectedBatchIndex)
         sidebar.setSelectedChannelIndex(selectedChannelIndex)
 

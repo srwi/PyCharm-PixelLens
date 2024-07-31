@@ -8,14 +8,14 @@ import java.awt.image.BufferedImage
 import java.awt.image.DataBufferByte
 import kotlin.math.pow
 
-class Batch (
+class BatchData (
     private var data: NDArray<Float, D4>
 ) {
     companion object {
-        fun fromNDArray(originalData: NDArray<Any, DN>, originalDataType: String): Batch {
+        fun fromNDArray(originalData: NDArray<Any, DN>, originalDataType: String): BatchData {
             val adjusted = adjustValueRange(originalData, originalDataType)
             val reshaped = reshapeData(adjusted)
-            return Batch(reshaped)
+            return BatchData(reshaped)
         }
 
         private fun reshapeData(array: NDArray<Float, DN>): NDArray<Float, D4> {

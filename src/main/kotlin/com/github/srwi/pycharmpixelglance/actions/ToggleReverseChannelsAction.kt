@@ -33,7 +33,7 @@ internal class ToggleReverseChannelsAction : DumbAwareToggleAction() {
         super.update(e)
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            val numChannels = imageViewer.data.channels
+            val numChannels = imageViewer.batch.data.channels
             val newState = numChannels == 3 || numChannels == 4
             e.presentation.isEnabled = newState
             if (!newState) {

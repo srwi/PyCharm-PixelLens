@@ -15,7 +15,8 @@ class NumpyImageProvider : ImageProvider() {
             __tmp_img_bytes = __tmp_img_array.tobytes()
             __tmp_img_base64 = __tmp_base64.b64encode(__tmp_img_bytes).decode('utf-8')
             __tmp_img_payload = {
-                'imageData': __tmp_img_base64,
+                'name': '$name',
+                'data': __tmp_img_base64,
                 'metadata': {
                     'shape': __tmp_img_array.shape,
                     'dtype': str(__tmp_img_array.dtype)

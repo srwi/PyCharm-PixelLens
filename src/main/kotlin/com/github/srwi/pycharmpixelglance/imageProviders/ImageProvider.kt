@@ -1,6 +1,6 @@
 package com.github.srwi.pycharmpixelglance.imageProviders
 
-import com.github.srwi.pycharmpixelglance.data.Batch
+import com.github.srwi.pycharmpixelglance.data.BatchData
 import com.jetbrains.python.debugger.PyFrameAccessor
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -17,13 +17,15 @@ import java.util.*
 data class Metadata(val shape: List<Int>, val dtype: String)
 
 @Serializable
-data class Payload(val imageData: String, val metadata: Metadata)
+data class Payload(val name: String, val data: String, val metadata: Metadata)
+
+data class Batch(val name: String, val data: BatchData, val metadata: Metadata)
 
 abstract class ImageProvider {
     fun getDataByVariableName(frameAccessor: PyFrameAccessor, name: String) : Batch {
         val payload = getPayload(frameAccessor, name)
-        val image = processImageData(payload)
-        return image
+        val batchData = processImageData(payload)
+        return batchData
     }
 
     fun deserializeJsonPayload(jsonPayloadString: String): Payload {
@@ -32,7 +34,7 @@ abstract class ImageProvider {
     }
 
     private fun processImageData(payload: Payload): Batch {
-        val imageBase64 = payload.imageData
+        val imageBase64 = payload.data
         val shape = payload.metadata.shape.toIntArray()
         val dtype = payload.metadata.dtype
 
@@ -120,7 +122,7 @@ abstract class ImageProvider {
             else -> multikArray.reshape(shape[0], shape[1], shape[2], shape[3], *shape.slice(4 until shape.size).toIntArray())
         } as NDArray<Any, DN>
 
-        return Batch.fromNDArray(reshapedArray, dtype)
+        return Batch(payload.name, BatchData.fromNDArray(reshapedArray, dtype), payload.metadata)
     }
 
     object Float16 {
