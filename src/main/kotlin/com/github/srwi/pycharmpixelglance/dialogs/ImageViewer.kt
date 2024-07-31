@@ -6,12 +6,20 @@ import com.github.srwi.pycharmpixelglance.icons.ImageViewerIcons
 import com.intellij.icons.AllIcons
 import com.intellij.ide.ActivityTracker
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.actionSystem.ActionGroup
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.DataProvider
+import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.ui.JBColor
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
-import com.intellij.ui.components.*
+import com.intellij.ui.components.JBLayeredPane
+import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.components.Magnificator
+import com.intellij.ui.components.TwoSideComponent
 import com.intellij.util.ui.JBUI
 import org.intellij.images.actions.ToggleTransparencyChessboardAction
 import org.intellij.images.editor.ImageDocument
@@ -157,12 +165,13 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
     }
 
     override fun createContentPaneBorder(): Border {
-        return JBUI.Borders.empty(5)
+        return JBUI.Borders.empty()
     }
 
     private fun createRightPanel(): JComponent {
         sidebar = Sidebar()
         sidebar.updateChannelList(data.channels)
+        sidebar.updateBatchList(data.batchSize)
         sidebar.setSelectedBatchIndex(selectedBatchIndex)
         sidebar.setSelectedChannelIndex(selectedChannelIndex)
 
@@ -192,9 +201,7 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
         ).apply {
             setReservePlaceAutoPopupIcon(false)
         }
-        val toolbarPanel = actionToolbar.component.apply {
-            border = BorderFactory.createEmptyBorder()
-        }
+        val toolbarPanel = actionToolbar.component
 
         val sidebarToggleGroup = DefaultActionGroup().apply {
             add(ToggleBatchSidebarAction())
@@ -204,13 +211,11 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
             "SidebarToolbar", sidebarToggleGroup, true
         ).apply {
             setReservePlaceAutoPopupIcon(false)
-        }.component.apply {
-            border = BorderFactory.createEmptyBorder()
-        }
+        }.component
 
         val twoSideComponent = TwoSideComponent(toolbarPanel, sidebarToggleToolbar)
         return JPanel(BorderLayout()).apply {
-            border = BorderFactory.createEmptyBorder()
+            border = BorderFactory.createMatteBorder(0, 0, 1, 0, JBColor.LIGHT_GRAY)
             add(twoSideComponent, BorderLayout.CENTER)
         }
     }
@@ -224,6 +229,7 @@ class ImageViewer(project: Project, val data: Batch) : DialogWrapper(project), I
         val view = ImageContainerPane(imageComponent)
         scrollPane = ScrollPaneFactory.createScrollPane(view)
         scrollPane.border = null
+        scrollPane.viewport.background = EditorColorsManager.getInstance().globalScheme.defaultBackground
         scrollPane.verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED
         scrollPane.horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
         scrollPane.addMouseWheelListener(wheelAdapter)

@@ -1,5 +1,8 @@
 package com.github.srwi.pycharmpixelglance.dialogs
 
+import com.intellij.ui.JBColor
+import com.intellij.ui.SimpleColoredComponent
+import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBScrollPane
 import java.awt.BorderLayout
@@ -26,9 +29,10 @@ class Sidebar {
         batchList = createBatchList()
         channelList = createChannelList()
 
-        batchPanel = createSubPanel("Batch Index", batchList)
-        channelPanel = createSubPanel("Channel Index", channelList)
+        batchPanel = createSubPanel("Layer", batchList)
+        channelPanel = createSubPanel("Channel", channelList)
 
+        panel.border = BorderFactory.createMatteBorder(0, 1, 0, 0, JBColor.LIGHT_GRAY)
         panel.add(batchPanel, SidebarType.BatchSidebar.name)
         panel.add(channelPanel, SidebarType.ChannelSidebar.name)
     }
@@ -54,9 +58,16 @@ class Sidebar {
     }
 
     private fun createSubPanel(title: String, list: JList<*>): JPanel {
+        val titleLabel = SimpleColoredComponent().apply {
+            append(title, SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+            border = BorderFactory.createEmptyBorder(12, 12, 12, 12)
+        }
+        val scrollPane = JBScrollPane(list).apply {
+            border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        }
         return JPanel(BorderLayout()).apply {
-            add(JLabel(title), BorderLayout.NORTH)
-            add(JBScrollPane(list), BorderLayout.CENTER)
+            add(titleLabel, BorderLayout.NORTH)
+            add(scrollPane, BorderLayout.CENTER)
         }
     }
 
@@ -67,9 +78,24 @@ class Sidebar {
     }
 
     fun updateChannelList(channels: Int) {
+        val hasRgbChannels = channels == 3 || channels == 4
         channelList.model = DefaultListModel<Any>().apply {
-            if (channels == 3 || channels == 4) addElement("All")
+            if (hasRgbChannels) addElement("All")
             for (i in 0 until channels) addElement(i)
+        }
+        if (channelList.model.size > 0) {
+            channelList.selectedIndex = 0
+            onChannelIndexChanged?.invoke(if (channelList.selectedValue == "All") null else channelList.selectedValue as Int)
+        }
+    }
+
+    fun updateBatchList(batches: Int) {
+        batchList.model = DefaultListModel<Int>().apply {
+            for (i in 0 until batches) addElement(i)
+        }
+        if (batchList.model.size > 0) {
+            batchList.selectedIndex = 0
+            onBatchIndexChanged?.invoke(batchList.selectedValue)
         }
     }
 
