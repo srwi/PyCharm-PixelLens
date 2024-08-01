@@ -86,6 +86,20 @@ class BatchData (
 
     val channels: Int get() = data.shape[3]
 
+    fun getValue(batchIndex: Int, x: Int, y: Int, channel: Int?) : Any {
+        require(x in 0 until width) { "Invalid x coordinate: $x" }
+        require(y in 0 until height) { "Invalid y coordinate: $y" }
+
+        val imageData = data[batchIndex] as NDArray<Float, D3>
+
+        if (channel == null) {
+            return imageData[y, x]
+        } else {
+            val adjustedChannel = if (reversedChannels) channels - channel - 1 else channel
+            return imageData[y, x, adjustedChannel]
+        }
+    }
+
     fun getImage(batchIndex: Int = 0, channel: Int? = null): BufferedImage {
         require(batchIndex in 0 until batchSize) { "Invalid batch index: $batchIndex" }
         require(channel in 0 until channels || channel == null) { "Invalid channel index: $channel" }

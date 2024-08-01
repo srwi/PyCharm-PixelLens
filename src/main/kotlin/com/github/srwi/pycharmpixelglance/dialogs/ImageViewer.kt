@@ -37,10 +37,7 @@ import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
 import java.awt.Point
-import java.awt.event.ComponentAdapter
-import java.awt.event.ComponentEvent
-import java.awt.event.MouseWheelEvent
-import java.awt.event.MouseWheelListener
+import java.awt.event.*
 import java.beans.PropertyChangeEvent
 import java.beans.PropertyChangeListener
 import javax.swing.*
@@ -133,7 +130,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     }
 
     private fun createTitle(): String {
-        return "${batch.name} (${batch.metadata.shape.joinToString()}) ${batch.metadata.dtype}"
+        return batch.name
     }
 
     private fun updateImage(repaint: Boolean = true) {
@@ -224,9 +221,52 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         }
     }
 
-    override fun createSouthPanel(): JComponent? {
-        // TODO: add status bar
-        return null
+    override fun createSouthPanel(): JComponent {
+        val statusBar = JPanel(BorderLayout()).apply {
+            border = BorderFactory.createMatteBorder(1, 0, 0, 0, JBColor.LIGHT_GRAY)
+        }
+        val coordinateValueLabel = JLabel().apply {
+            border = JBUI.Borders.empty(5)
+        }
+        val shapeLabel = JLabel(batch.metadata.shape.joinToString("x")).apply {
+            border = JBUI.Borders.empty(5)
+        }
+        val dtypeLabel = JLabel(batch.metadata.dtype).apply {
+            border = JBUI.Borders.empty(5)
+        }
+
+        val rightPanel = JPanel(BorderLayout()).apply {
+            add(shapeLabel, BorderLayout.WEST)
+            add(dtypeLabel, BorderLayout.EAST)
+        }
+
+        statusBar.add(coordinateValueLabel, BorderLayout.WEST)
+        statusBar.add(rightPanel, BorderLayout.EAST)
+
+        imageComponent.addMouseMotionListener(object : MouseMotionAdapter() {
+            override fun mouseMoved(e: MouseEvent) {
+                val mouseX = e.x
+                val mouseY = e.y
+                val zoomFactor = internalZoomModel.zoomFactor
+
+                val originalX = (mouseX / zoomFactor).toInt()
+                val originalY = (mouseY / zoomFactor).toInt()
+
+                coordinateValueLabel.text = "($originalX, $originalY), ${getDataValueAt(originalX, originalY)}"
+            }
+        })
+
+        imageComponent.addMouseListener(object : MouseAdapter() {
+            override fun mouseExited(e: MouseEvent) {
+                coordinateValueLabel.text = null
+            }
+        })
+
+        return statusBar
+    }
+
+    private fun getDataValueAt(x: Int, y: Int): Any {
+        return batch.data.getValue(selectedBatchIndex, x, y, selectedChannelIndex)
     }
 
     private fun createImagePanel(): JComponent {
@@ -243,6 +283,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
     override fun getDimensionServiceKey() = "com.github.srwi.pycharmpixelglance.dialogs.ImageViewer"
 
+    // TODO: doesn't seem to count as default size on first usage
     override fun getPreferredSize() = Dimension(800, 600)
 
     private fun createCustomActionGroup(): ActionGroup {
