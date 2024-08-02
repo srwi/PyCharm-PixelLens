@@ -252,7 +252,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
                 val originalX = (mouseX / zoomFactor).toInt()
                 val originalY = (mouseY / zoomFactor).toInt()
 
-                coordinateValueLabel.text = "($originalX, $originalY), ${getDataValueAt(originalX, originalY)}"
+                coordinateValueLabel.text = "($originalX, $originalY): ${getDataValueAt(originalX, originalY)}"
             }
         })
 

@@ -122,7 +122,7 @@ abstract class ImageProvider {
             else -> multikArray.reshape(shape[0], shape[1], shape[2], shape[3], *shape.slice(4 until shape.size).toIntArray())
         } as NDArray<Any, DN>
 
-        return Batch(payload.name, BatchData.fromNDArray(reshapedArray, dtype), payload.metadata)
+        return Batch(payload.name, BatchData(reshapedArray, dtype), payload.metadata)
     }
 
     object Float16 {

@@ -9,55 +9,14 @@ import java.awt.image.DataBufferByte
 import kotlin.math.pow
 
 class BatchData (
-    private var data: NDArray<Float, D4>
+    originalData: NDArray<Any, DN>, private val originalDataType: String
 ) {
-    companion object {
-        fun fromNDArray(originalData: NDArray<Any, DN>, originalDataType: String): BatchData {
-            val adjusted = adjustValueRange(originalData, originalDataType)
-            val reshaped = reshapeData(adjusted)
-            return BatchData(reshaped)
-        }
+    private var data: NDArray<Any, D4>
+    private var unsqueezedLastDim: Boolean = false
 
-        private fun reshapeData(array: NDArray<Float, DN>): NDArray<Float, D4> {
-            when (array.shape.size) {
-                1, 2 -> {
-                    // Create width or channel dimension
-                    val unsqueezed = array.unsqueeze(array.shape.size)
-                    return reshapeData(unsqueezed)
-                }
-                3 -> {
-                    // Create batch dimension
-                    val unsqueezed = array.unsqueeze(0)
-                    return reshapeData(unsqueezed)
-                }
-                4 -> {
-                    return array as NDArray<Float, D4>
-                }
-                else -> {
-                    // Remove empty first dimension
-                    if (array.shape[0] == 1) {
-                        val squeezed = array.squeeze(0)
-                        return reshapeData(squeezed)
-                    }
-                }
-            }
-
-            throw Exception("Shape ${array.shape.contentToString()} not supported.")
-        }
-
-        private fun adjustValueRange(array: NDArray<Any, DN>, dataType: String): NDArray<Float, DN> {
-            val preprocessed = when (dataType) {
-                "int8" -> array.asType<Float>() + 128f
-                "uint8", "RGBA", "RGB", "L", "P" -> array.asType<Float>()
-                "uint16", "uint32", "uint64" -> array.asType<Double>() / 256.0
-                "int16", "int32", "int64", "I" -> (array.asType<Double>() / 256.0) + 128.0
-                "float16", "float32", "float64", "F" -> array.asType<Double>() * 255.0
-                "bool" -> array.asType<Float>() * 255f
-                else -> throw IllegalArgumentException("Unsupported data type: $dataType")
-            }
-
-            return preprocessed.asType<Float>().clip(0f, 255f)
-        }
+    init {
+        val reshaped = reshapeData(originalData)
+        data = reshaped
     }
 
     var channelsFirst: Boolean = false
@@ -86,14 +45,60 @@ class BatchData (
 
     val channels: Int get() = data.shape[3]
 
+    private fun reshapeData(array: NDArray<Any, DN>): NDArray<Any, D4> {
+        when (array.shape.size) {
+            1, 2 -> {
+                // Create width or channel dimension
+                val unsqueezed = array.unsqueeze(array.shape.size)
+                unsqueezedLastDim = true
+                return reshapeData(unsqueezed)
+            }
+            3 -> {
+                // Create batch dimension
+                val unsqueezed = array.unsqueeze(0)
+                return reshapeData(unsqueezed)
+            }
+            4 -> {
+                return array as NDArray<Any, D4>
+            }
+            else -> {
+                // Remove empty first dimension
+                if (array.shape[0] == 1) {
+                    val squeezed = array.squeeze(0)
+                    return reshapeData(squeezed)
+                }
+            }
+        }
+
+        throw Exception("Shape ${array.shape.contentToString()} not supported.")
+    }
+
+    private fun adjustValueRange(array: NDArray<Any, D3>, dataType: String): NDArray<Float, D3> {
+        val preprocessed = when (dataType) {
+            "int8" -> array.asType<Float>() + 128f
+            "uint8", "RGBA", "RGB", "L", "P" -> array.asType<Float>()
+            "uint16", "uint32", "uint64" -> array.asType<Double>() / 256.0
+            "int16", "int32", "int64", "I" -> (array.asType<Double>() / 256.0) + 128.0
+            "float16", "float32", "float64", "F" -> array.asType<Double>() * 255.0
+            "bool" -> array.asType<Float>() * 255f
+            else -> throw IllegalArgumentException("Unsupported data type: $dataType")
+        }
+
+        return preprocessed.asType<Float>().clip(0f, 255f)
+    }
+
     fun getValue(batchIndex: Int, x: Int, y: Int, channel: Int?) : Any {
         require(x in 0 until width) { "Invalid x coordinate: $x" }
         require(y in 0 until height) { "Invalid y coordinate: $y" }
 
-        val imageData = data[batchIndex] as NDArray<Float, D3>
+        val imageData = data[batchIndex] as NDArray<Any, D3>
 
         if (channel == null) {
-            return imageData[y, x]
+            return if (unsqueezedLastDim) {
+                imageData[y, x, 0]
+            } else {
+                imageData[y, x]
+            }
         } else {
             val adjustedChannel = if (reversedChannels) channels - channel - 1 else channel
             return imageData[y, x, adjustedChannel]
@@ -104,24 +109,26 @@ class BatchData (
         require(batchIndex in 0 until batchSize) { "Invalid batch index: $batchIndex" }
         require(channel in 0 until channels || channel == null) { "Invalid channel index: $channel" }
 
-        val imageData = data[batchIndex] as NDArray<Float, D3>
+        val imageData = data[batchIndex] as NDArray<Any, D3>
 
-        var channelData = if (channel == null) {
+        val channelData = if (channel == null) {
             imageData.deepCopy()
         } else {
             val adjustedChannel = if (reversedChannels) channels - channel - 1 else channel
             // unsqueeze will create a copy
             imageData[0 until imageData.shape[0], 0 until imageData.shape[1], adjustedChannel].unsqueeze(2)
-        } as NDArray<Float, D3>
+        } as NDArray<Any, D3>
+
+        var rescaledChannelData = adjustValueRange(channelData, originalDataType)
 
         if (normalized) {
-            channelData = normalizeData(channelData)
+            rescaledChannelData = normalizeData(rescaledChannelData)
         }
-        if (grayscaleColormap && channelData.shape[2] == 1) {
-            channelData = applyColormap(channelData)
+        if (grayscaleColormap && rescaledChannelData.shape[2] == 1) {
+            rescaledChannelData = applyColormap(rescaledChannelData)
         }
 
-        return getBufferedImage(channelData)
+        return getBufferedImage(rescaledChannelData)
     }
 
     private fun normalizeData(someData: NDArray<Float, D3>): NDArray<Float, D3> {
@@ -192,8 +199,8 @@ class BatchData (
         false -> Triple(0, 1, 2)
     }
 
+    // TODO: Convert to lookup table
     private fun viridisColor(value: Float): Triple<Float, Float, Float> {
-        // Coefficients for the Viridis colormap approximation
         val c0 = listOf(0.2777273272234177, 0.005407344544966578, 0.3340998053353061)
         val c1 = listOf(0.1050930431085774, 1.404613529898575, 1.384590162594685)
         val c2 = listOf(-0.3308618287255563, 0.214847559468213, 0.09509516302823659)

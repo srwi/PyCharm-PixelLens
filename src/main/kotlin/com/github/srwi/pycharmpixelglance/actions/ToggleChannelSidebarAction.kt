@@ -29,7 +29,7 @@ internal class ToggleChannelSidebarAction : DumbAwareToggleAction("Toggle Channe
         super.update(e)
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            val newState = imageViewer.batch.metadata.shape.size > 2
+            val newState = imageViewer.batch.data.channels > 1
             e.presentation.isVisible = newState
             if (!newState) {
                 setSelected(e, false)
