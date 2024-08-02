@@ -90,9 +90,10 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
             }
         }
 
-    var selectedBatchIndex: Int = 0
+    private var selectedBatchIndex: Int = 0
 
     var selectedChannelIndex: Int? = null
+        private set
 
     private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
     private val imageComponent: ImageComponent = ImageComponent()
@@ -282,9 +283,6 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     }
 
     override fun getDimensionServiceKey() = "com.github.srwi.pycharmpixelglance.dialogs.ImageViewer"
-
-    // TODO: doesn't seem to count as default size on first usage
-    override fun getPreferredSize() = Dimension(800, 600)
 
     private fun createCustomActionGroup(): ActionGroup {
         return DefaultActionGroup().apply {

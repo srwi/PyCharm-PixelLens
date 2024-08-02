@@ -24,6 +24,8 @@ class Sidebar {
     private val channelList: JBList<Any>
     private var onBatchIndexChanged: ((Int) -> Unit)? = null
     private var onChannelIndexChanged: ((Int?) -> Unit)? = null
+    private var hasRgbChannels: Boolean = false
+    private val allChannelsLabel: String = "All"
 
     init {
         batchList = createBatchList()
@@ -41,9 +43,7 @@ class Sidebar {
         val listModel = DefaultListModel<Int>()
         val list = JBList(listModel)
         list.selectionMode = ListSelectionModel.SINGLE_SELECTION
-        list.addListSelectionListener {
-            onBatchIndexChanged?.invoke(list.selectedValue)
-        }
+        list.addListSelectionListener { notifySelectedBatchIndexChanged() }
         return list
     }
 
@@ -51,9 +51,7 @@ class Sidebar {
         val listModel = DefaultListModel<Any>()
         val list = JBList(listModel)
         list.selectionMode = ListSelectionModel.SINGLE_SELECTION
-        list.addListSelectionListener {
-            onChannelIndexChanged?.invoke(if (list.selectedValue == "All") null else list.selectedValue as Int)
-        }
+        list.addListSelectionListener { notifySelectedChannelIndexChanged() }
         return list
     }
 
@@ -80,12 +78,11 @@ class Sidebar {
     fun updateChannelList(channels: Int) {
         val hasRgbChannels = channels == 3 || channels == 4
         channelList.model = DefaultListModel<Any>().apply {
-            if (hasRgbChannels) addElement("All")
+            if (hasRgbChannels) addElement(allChannelsLabel)
             for (i in 0 until channels) addElement(i)
         }
         if (channelList.model.size > 0) {
             channelList.selectedIndex = 0
-            onChannelIndexChanged?.invoke(if (channelList.selectedValue == "All") null else channelList.selectedValue as Int)
         }
     }
 
@@ -95,7 +92,6 @@ class Sidebar {
         }
         if (batchList.model.size > 0) {
             batchList.selectedIndex = 0
-            onBatchIndexChanged?.invoke(batchList.selectedValue)
         }
     }
 
@@ -104,7 +100,25 @@ class Sidebar {
     }
 
     fun setSelectedChannelIndex(index: Int?) {
-        channelList.selectedIndex = if (index == null) 0 else index + 1
+        if (index == null) {
+            channelList.selectedIndex = 0
+        } else {
+            channelList.selectedIndex = index + if (hasRgbChannels) 1 else 0
+        }
+    }
+
+    private fun notifySelectedChannelIndexChanged() {
+        if (channelList.selectedValue != null) {
+            val newValue = if (channelList.selectedValue == allChannelsLabel) null else channelList.selectedValue as Int
+            onChannelIndexChanged?.invoke(newValue)
+        }
+    }
+
+    private fun notifySelectedBatchIndexChanged() {
+        if (batchList.selectedValue != null) {
+            val newValue = batchList.selectedValue
+            onBatchIndexChanged?.invoke(newValue)
+        }
     }
 
     fun onBatchIndexChanged(listener: (Int) -> Unit) {

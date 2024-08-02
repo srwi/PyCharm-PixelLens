@@ -164,30 +164,30 @@ class BatchData (
             else -> throw Exception("Unsupported number of channels: $channels")
         }
 
-        val intImage = someData.clip(0f, 255f).asType<Byte>().flatten()
+        val byteData = someData.clip(0f, 255f).asType<Byte>().flatten()
         val buffer = (bufferedImage.raster.dataBuffer as DataBufferByte).data
         val (redOffset, greenOffset, blueOffset) = channelIndexOffsets()
         when (bufferChannels) {
             1 -> {
                 for (i in buffer.indices) {
-                    buffer[i] = intImage[i]
+                    buffer[i] = byteData[i]
                 }
             }
 
             3 -> {
                 for (i in 0 until height * width) {
-                    buffer[i * 3] = intImage[i * 3 + blueOffset]
-                    buffer[i * 3 + 1] = intImage[i * 3 + greenOffset]
-                    buffer[i * 3 + 2] = intImage[i * 3 + redOffset]
+                    buffer[i * 3] = byteData[i * 3 + blueOffset]
+                    buffer[i * 3 + 1] = byteData[i * 3 + greenOffset]
+                    buffer[i * 3 + 2] = byteData[i * 3 + redOffset]
                 }
             }
 
             4 -> {
                 for (i in 0 until height * width) {
-                    buffer[i * 4] = intImage[i * 4 + 3]  // alpha
-                    buffer[i * 4 + 1] = intImage[i * 4 + blueOffset]
-                    buffer[i * 4 + 2] = intImage[i * 4 + greenOffset]
-                    buffer[i * 4 + 3] = intImage[i * 4 + redOffset]
+                    buffer[i * 4] = byteData[i * 4 + 3]  // alpha
+                    buffer[i * 4 + 1] = byteData[i * 4 + blueOffset]
+                    buffer[i * 4 + 2] = byteData[i * 4 + greenOffset]
+                    buffer[i * 4 + 3] = byteData[i * 4 + redOffset]
                 }
             }
         }
