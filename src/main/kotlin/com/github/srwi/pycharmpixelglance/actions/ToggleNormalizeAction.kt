@@ -1,5 +1,6 @@
 package com.github.srwi.pycharmpixelglance.actions
 
+import com.github.srwi.pycharmpixelglance.UserSettings
 import com.github.srwi.pycharmpixelglance.dialogs.ImageViewer
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -10,14 +11,16 @@ internal class ToggleNormalizeAction : DumbAwareToggleAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            imageViewer.normalizeSelected = !imageViewer.normalizeSelected
+            val newValue = !imageViewer.normalizeEnabled
+            UserSettings.normalizeEnabled = newValue
+            imageViewer.normalizeEnabled = newValue
         }
     }
 
     override fun isSelected(e: AnActionEvent): Boolean {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            return imageViewer.normalizeSelected
+            return imageViewer.normalizeEnabled
         }
         return false
     }
@@ -25,7 +28,7 @@ internal class ToggleNormalizeAction : DumbAwareToggleAction() {
     override fun setSelected(e: AnActionEvent, state: Boolean) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            imageViewer.normalizeSelected = state
+            imageViewer.normalizeEnabled = state
         }
     }
 

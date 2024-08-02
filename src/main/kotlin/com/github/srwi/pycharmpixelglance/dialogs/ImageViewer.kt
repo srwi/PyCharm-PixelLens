@@ -1,5 +1,6 @@
 package com.github.srwi.pycharmpixelglance.dialogs
 
+import com.github.srwi.pycharmpixelglance.UserSettings
 import com.github.srwi.pycharmpixelglance.actions.*
 import com.github.srwi.pycharmpixelglance.icons.ImageViewerIcons
 import com.github.srwi.pycharmpixelglance.imageProviders.Batch
@@ -45,21 +46,23 @@ import javax.swing.border.Border
 import kotlin.math.max
 
 class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable {
-    // TODO: read default from options
-    var normalizeSelected: Boolean = batch.data.normalized
+
+    var normalizeEnabled: Boolean = batch.data.normalized
         set(value) {
             if (field == value) return
             field = value
+            UserSettings.normalizeEnabled = value
             batch.data.normalized = value
             updateImage()
         }
 
-    var transposeSelected: Boolean = batch.data.channelsFirst
+    var transposeEnabled: Boolean = batch.data.channelsFirst
         set(value) {
             if (field == value) return
             field = value
             batch.data.channelsFirst = value
-            sidebar.updateChannelList(batch.data.channels)  // TODO: sidebar should subscribe to data event instead
+            sidebar.updateChannelList(batch.data.channels)
+            internalZoomModel.isZoomLevelChanged = true  // TODO: restore fit zoom to window
             updateImage()
         }
 
@@ -92,7 +95,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
     private var selectedBatchIndex: Int = 0
 
-    var selectedChannelIndex: Int? = null
+    var selectedChannelIndex: Int? = if (batch.data.supportsMultiChannelDisplay()) null else 0
         private set
 
     private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
@@ -106,7 +109,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     private lateinit var sidebarPanel: JPanel
 
     init {
-        title = createTitle()
+        title = batch.name
         isModal = false
 
         val options = OptionsManager.getInstance().options
@@ -130,16 +133,12 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         smartZoom()
     }
 
-    private fun createTitle(): String {
-        return batch.name
-    }
-
     private fun updateImage(repaint: Boolean = true) {
         val image = batch.data.getImage(selectedBatchIndex, selectedChannelIndex)
         val document: ImageDocument = imageComponent.document
         document.value = image
         if (repaint) repaintImage()
-        ActivityTracker.getInstance().inc()  // TODO: only update this toolbar
+        ActivityTracker.getInstance().inc()  // Update toolbar actions
     }
 
     private fun setSidebarVisibility(visible: Boolean) {
@@ -162,6 +161,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
             border = BorderFactory.createEmptyBorder()
             add(createImagePanel(), BorderLayout.CENTER)
             add(createRightPanel(), BorderLayout.EAST)
+            minimumSize = Dimension(0, 600)
         }
         return contentPanel
     }
@@ -198,27 +198,21 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     override fun createNorthPanel(): JComponent {
         val actionManager = ActionManager.getInstance()
         val actionGroup = createCustomActionGroup()
-        val actionToolbar = actionManager.createActionToolbar(
-            "MainToolbar", actionGroup, true
-        ).apply {
-            setReservePlaceAutoPopupIcon(false)
-        }
-        val toolbarPanel = actionToolbar.component
+        val actionToolbar = actionManager.createActionToolbar("MainToolbar", actionGroup, true)
+        actionToolbar.apply { setReservePlaceAutoPopupIcon(false) }
 
         val sidebarToggleGroup = DefaultActionGroup().apply {
             add(ToggleBatchSidebarAction())
             add(ToggleChannelSidebarAction())
         }
-        val sidebarToggleToolbar = actionManager.createActionToolbar(
-            "SidebarToolbar", sidebarToggleGroup, true
-        ).apply {
-            setReservePlaceAutoPopupIcon(false)
-        }.component
+        val sidebarToggleToolbar = actionManager.createActionToolbar("SidebarToolbar", sidebarToggleGroup, true)
+        sidebarToggleToolbar.apply { setReservePlaceAutoPopupIcon(false) }
 
-        val twoSideComponent = TwoSideComponent(toolbarPanel, sidebarToggleToolbar)
+        val twoSideComponent = TwoSideComponent(actionToolbar.component, sidebarToggleToolbar.component)
         return JPanel(BorderLayout()).apply {
             border = BorderFactory.createMatteBorder(0, 0, 1, 0, JBColor.LIGHT_GRAY)
             add(twoSideComponent, BorderLayout.CENTER)
+            minimumSize = Dimension(650, 0)
         }
     }
 

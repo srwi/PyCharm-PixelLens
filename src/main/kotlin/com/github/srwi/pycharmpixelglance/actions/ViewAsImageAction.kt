@@ -1,5 +1,6 @@
 package com.github.srwi.pycharmpixelglance.actions
 
+import com.github.srwi.pycharmpixelglance.UserSettings
 import com.github.srwi.pycharmpixelglance.dialogs.ImageViewer
 import com.github.srwi.pycharmpixelglance.imageProviders.NumpyImageProvider
 import com.github.srwi.pycharmpixelglance.imageProviders.PillowImageProvider
@@ -25,9 +26,14 @@ class ViewAsImageAction : AnAction() {
             typeQualifier.startsWith("tensorflow") -> TensorflowImageProvider()
             else -> throw IllegalArgumentException("Unsupported type qualifier: $typeQualifier")
         }
-        val data = imageProvider.getDataByVariableName(frameAccessor, value.name)
-        val viewer = ImageViewer(project, data)
-        viewer.show()
+
+        val batch = imageProvider.getDataByVariableName(frameAccessor, value.name)
+        batch.data.normalized = UserSettings.normalizeEnabled
+        batch.data.channelsFirst = UserSettings.transposeEnabled
+        batch.data.reversedChannels = UserSettings.reverseChannelsEnabled
+        batch.data.grayscaleColormap = UserSettings.applyColormapEnabled
+
+        ImageViewer(project, batch).show()
     }
 
     override fun getActionUpdateThread(): ActionUpdateThread {

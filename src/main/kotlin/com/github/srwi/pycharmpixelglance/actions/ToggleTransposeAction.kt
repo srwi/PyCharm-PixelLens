@@ -1,5 +1,6 @@
 package com.github.srwi.pycharmpixelglance.actions
 
+import com.github.srwi.pycharmpixelglance.UserSettings
 import com.github.srwi.pycharmpixelglance.dialogs.ImageViewer
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -10,14 +11,16 @@ internal class ToggleTransposeAction : DumbAwareToggleAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            imageViewer.transposeSelected = !imageViewer.transposeSelected
+            val newValue = !imageViewer.transposeEnabled
+            UserSettings.transposeEnabled = newValue
+            imageViewer.transposeEnabled = newValue
         }
     }
 
     override fun isSelected(e: AnActionEvent): Boolean {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            return imageViewer.transposeSelected
+            return imageViewer.transposeEnabled
         }
         return false
     }
@@ -25,7 +28,7 @@ internal class ToggleTransposeAction : DumbAwareToggleAction() {
     override fun setSelected(e: AnActionEvent, state: Boolean) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            imageViewer.transposeSelected = state
+            imageViewer.transposeEnabled = state
         }
     }
 

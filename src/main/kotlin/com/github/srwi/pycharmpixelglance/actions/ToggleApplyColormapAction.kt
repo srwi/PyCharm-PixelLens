@@ -1,5 +1,6 @@
 package com.github.srwi.pycharmpixelglance.actions
 
+import com.github.srwi.pycharmpixelglance.UserSettings
 import com.github.srwi.pycharmpixelglance.dialogs.ImageViewer
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -10,7 +11,9 @@ internal class ToggleApplyColormapAction : DumbAwareToggleAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            imageViewer.applyColormapEnabled = !imageViewer.applyColormapEnabled
+            val newValue = !imageViewer.applyColormapEnabled
+            UserSettings.applyColormapEnabled = newValue
+            imageViewer.applyColormapEnabled = newValue
         }
     }
 

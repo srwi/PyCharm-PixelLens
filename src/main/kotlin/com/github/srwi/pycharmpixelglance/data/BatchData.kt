@@ -87,6 +87,10 @@ class BatchData (
         return preprocessed.asType<Float>().clip(0f, 255f)
     }
 
+    fun supportsMultiChannelDisplay(): Boolean {
+        return channels == 1 || channels == 3 || channels == 4
+    }
+
     fun getValue(batchIndex: Int, x: Int, y: Int, channel: Int?) : Any {
         require(x in 0 until width) { "Invalid x coordinate: $x" }
         require(y in 0 until height) { "Invalid y coordinate: $y" }
