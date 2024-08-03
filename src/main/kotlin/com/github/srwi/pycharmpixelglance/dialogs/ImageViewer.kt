@@ -2,6 +2,7 @@ package com.github.srwi.pycharmpixelglance.dialogs
 
 import com.github.srwi.pycharmpixelglance.UserSettings
 import com.github.srwi.pycharmpixelglance.actions.*
+import com.github.srwi.pycharmpixelglance.data.Utils
 import com.github.srwi.pycharmpixelglance.icons.ImageViewerIcons
 import com.github.srwi.pycharmpixelglance.imageProviders.Batch
 import com.intellij.icons.AllIcons
@@ -247,7 +248,10 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
                 val originalX = (mouseX / zoomFactor).toInt()
                 val originalY = (mouseY / zoomFactor).toInt()
 
-                coordinateValueLabel.text = "($originalX, $originalY): ${getDataValueAt(originalX, originalY)}"
+                val value = getDataValueAt(originalX, originalY)
+                val formattedValue = Utils.formatArrayOrScalar(value)
+
+                coordinateValueLabel.text = "($originalX, $originalY): $formattedValue"
             }
         })
 
