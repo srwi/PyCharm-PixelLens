@@ -2,6 +2,7 @@ package com.github.srwi.pycharmpixelglance.imageProviders
 
 import com.github.srwi.pycharmpixelglance.interop.Python.evaluateExpression
 import com.github.srwi.pycharmpixelglance.interop.Python.executeStatement
+import com.jetbrains.python.debugger.PyDebugValue
 import com.jetbrains.python.debugger.PyFrameAccessor
 
 class NumpyImageProvider : ImageProvider() {
@@ -12,7 +13,7 @@ class NumpyImageProvider : ImageProvider() {
             import numpy as __tmp_np
             
             __tmp_img_array = $name
-            __tmp_img_bytes = __tmp_img_array.tobytes()
+            __tmp_img_bytes = __tmp_np.ascontiguousarray(__tmp_img_array).tobytes()
             __tmp_img_base64 = __tmp_base64.b64encode(__tmp_img_bytes).decode('utf-8')
             __tmp_img_payload = {
                 'name': '$name',
@@ -37,5 +38,9 @@ class NumpyImageProvider : ImageProvider() {
         } finally {
             executeStatement(frameAccessor, cleanupCommand)
         }
+    }
+
+    override fun typeSupported(value: PyDebugValue): Boolean {
+        return value.type == "ndarray"
     }
 }

@@ -1,11 +1,9 @@
 package com.github.srwi.pycharmpixelglance.actions
 
 import com.github.srwi.pycharmpixelglance.UserSettings
+import com.github.srwi.pycharmpixelglance.dialogs.ErrorMessageDialog
 import com.github.srwi.pycharmpixelglance.dialogs.ImageViewer
-import com.github.srwi.pycharmpixelglance.imageProviders.NumpyImageProvider
-import com.github.srwi.pycharmpixelglance.imageProviders.PillowImageProvider
-import com.github.srwi.pycharmpixelglance.imageProviders.PytorchImageProvider
-import com.github.srwi.pycharmpixelglance.imageProviders.TensorflowImageProvider
+import com.github.srwi.pycharmpixelglance.imageProviders.ImageProviderFactory
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -16,24 +14,25 @@ class ViewAsImageAction : AnAction() {
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
-        val frameAccessor = value.frameAccessor
-        val typeQualifier = value.typeQualifier as String
-        val imageProvider = when {
-            typeQualifier == "numpy" -> NumpyImageProvider()
-            typeQualifier == "torch" -> PytorchImageProvider()
-            typeQualifier == "PIL.Image" -> PillowImageProvider()
-            typeQualifier.startsWith("tensorflow") -> TensorflowImageProvider()
-            else -> throw IllegalArgumentException("Unsupported type qualifier: $typeQualifier")
+        try {
+            val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
+            val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
+            val batch = imageProvider.getDataByVariableName(value.frameAccessor, value.name)
+            batch.data.normalized = UserSettings.normalizeEnabled
+            batch.data.channelsFirst = UserSettings.transposeEnabled
+            batch.data.reversedChannels = UserSettings.reverseChannelsEnabled
+            batch.data.grayscaleColormap = UserSettings.applyColormapEnabled
+
+            ImageViewer(project, batch).show()
+        } catch (ex: Exception) {
+            val formattedException = ex.message + "\n" + ex.stackTrace.joinToString("\n")
+            ErrorMessageDialog(
+                project,
+                "Error",
+                "The selected data could not be viewed as image.",
+                formattedException
+            ).show()
         }
-
-        val batch = imageProvider.getDataByVariableName(frameAccessor, value.name)
-        batch.data.normalized = UserSettings.normalizeEnabled
-        batch.data.channelsFirst = UserSettings.transposeEnabled
-        batch.data.reversedChannels = UserSettings.reverseChannelsEnabled
-        batch.data.grayscaleColormap = UserSettings.applyColormapEnabled
-
-        ImageViewer(project, batch).show()
     }
 
     override fun getActionUpdateThread(): ActionUpdateThread {
@@ -42,13 +41,13 @@ class ViewAsImageAction : AnAction() {
 
     override fun update(e: AnActionEvent) {
         super.update(e)
-        val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
-        val typeQualifier = value.typeQualifier as String
-        // TODO: check for shape compatibility
-        val isSupported = when (typeQualifier) {
-            "numpy", "torch", "PIL.Image" -> true
-            else -> value.typeQualifier!!.startsWith("tensorflow")
+        try {
+            val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
+            val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
+            e.presentation.isVisible = imageProvider.typeSupported(value)
+            e.presentation.isEnabled = imageProvider.shapeSupported(value)
+        } catch (_: Exception) {
+            e.presentation.isVisible = false
         }
-        e.presentation.isVisible = isSupported
     }
 }

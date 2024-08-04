@@ -2,6 +2,7 @@ package com.github.srwi.pycharmpixelglance.imageProviders
 
 import com.github.srwi.pycharmpixelglance.interop.Python.evaluateExpression
 import com.github.srwi.pycharmpixelglance.interop.Python.executeStatement
+import com.jetbrains.python.debugger.PyDebugValue
 import com.jetbrains.python.debugger.PyFrameAccessor
 
 class TensorflowImageProvider : ImageProvider() {
@@ -38,5 +39,9 @@ class TensorflowImageProvider : ImageProvider() {
         } finally {
             executeStatement(frameAccessor, cleanupCommand)
         }
+    }
+
+    override fun typeSupported(value: PyDebugValue): Boolean {
+        return value.type == "EagerTensor" || value.type == "ResourceVariable"
     }
 }

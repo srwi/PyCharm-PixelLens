@@ -1,6 +1,7 @@
 package com.github.srwi.pycharmpixelglance.imageProviders
 
 import com.github.srwi.pycharmpixelglance.data.BatchData
+import com.jetbrains.python.debugger.PyDebugValue
 import com.jetbrains.python.debugger.PyFrameAccessor
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -125,6 +126,10 @@ abstract class ImageProvider {
         return Batch(payload.name, BatchData(reshapedArray, dtype), payload.metadata)
     }
 
+    private fun convertStringToShapeList(shapeString: String): List<Int> {
+        return Regex("\\d+").findAll(shapeString).map { it.value.toInt() }.toList()
+    }
+
     object Float16 {
         fun fromBits(bits: Short): Float {
             val s = (bits.toInt() shr 15) and 0x1
@@ -155,6 +160,19 @@ abstract class ImageProvider {
             return Float.fromBits(bits)
         }
     }
+
+    fun shapeSupported(value: PyDebugValue): Boolean {
+        val shape = value.shape as String
+        val shapeList = convertStringToShapeList(shape)
+        if (shapeList.size <= 4) return true
+        for (i in 0 until (shapeList.size - 4)) {
+            // Only dimensions of size 1 can be squeezed
+            if (shapeList[i] != 1) return false
+        }
+        return true
+    }
+
+    abstract fun typeSupported(value: PyDebugValue): Boolean
 
     abstract fun getPayload(frameAccessor: PyFrameAccessor, name: String) : Payload
 }
