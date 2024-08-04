@@ -162,7 +162,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
             border = BorderFactory.createEmptyBorder()
             add(createImagePanel(), BorderLayout.CENTER)
             add(createRightPanel(), BorderLayout.EAST)
-            minimumSize = Dimension(0, 600)
+            minimumSize = Dimension(0, 400)
         }
         return contentPanel
     }

@@ -7,12 +7,28 @@ import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBScrollPane
 import java.awt.BorderLayout
 import java.awt.CardLayout
+import java.awt.Component
 import javax.swing.*
 
 
 enum class SidebarType {
     BatchSidebar,
     ChannelSidebar
+}
+
+
+private class CustomListCellRenderer : DefaultListCellRenderer() {
+    override fun getListCellRendererComponent(
+        list: JList<*>,
+        value: Any,
+        index: Int,
+        isSelected: Boolean,
+        cellHasFocus: Boolean
+    ): Component {
+        val component = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus) as JLabel
+        component.border = BorderFactory.createEmptyBorder(6, 8, 6, 8)
+        return component
+    }
 }
 
 
@@ -43,6 +59,7 @@ class Sidebar {
         val listModel = DefaultListModel<Int>()
         val list = JBList(listModel)
         list.selectionMode = ListSelectionModel.SINGLE_SELECTION
+        list.cellRenderer = CustomListCellRenderer()
         list.addListSelectionListener { notifySelectedBatchIndexChanged() }
         return list
     }
@@ -51,6 +68,7 @@ class Sidebar {
         val listModel = DefaultListModel<Any>()
         val list = JBList(listModel)
         list.selectionMode = ListSelectionModel.SINGLE_SELECTION
+        list.cellRenderer = CustomListCellRenderer()
         list.addListSelectionListener { notifySelectedChannelIndexChanged() }
         return list
     }
