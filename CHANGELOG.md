@@ -1,7 +1,9 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
-# PyCharm-PixelGlance Changelog
+# PixelLens Changelog
 
-## [Unreleased]
+## [0.1.0] - 2024-08-04
+
 ### Added
-- Initial scaffold created from [IntelliJ Platform Plugin Template](https://github.com/JetBrains/intellij-platform-plugin-template)
+
+- Initial release of PixelLens 🎉
