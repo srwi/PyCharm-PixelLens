@@ -19,7 +19,7 @@ PixelLens is capable of displaying 1D, 2D, 3D or 4D data by right clicking any s
 - Save or copy the displayed image for easy sharing
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/2ad50efd-efa3-4cd8-8789-44dfb1b277ce" width="480em">
+  <img src="https://github.com/user-attachments/assets/2ad50efd-efa3-4cd8-8789-44dfb1b277ce" width="550">
 <p>
 <!-- Plugin description end -->
 
