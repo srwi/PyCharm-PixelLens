@@ -1,7 +1,7 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>com.github.srwi.pycharmpixelglance</id>
-    <name>PyCharm-PixelGlance</name>
+    <id>com.github.srwi.pixellens</id>
+    <name>PixelLens</name>
     <vendor>srwi</vendor>
 
     <depends>com.intellij.modules.platform</depends>
@@ -11,7 +11,7 @@
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <actions>
-        <action id="ViewImageAction" class="com.github.srwi.pycharmpixelglance.actions.ViewAsImageAction" text="View as Image">
+        <action id="ViewImageAction" class="com.github.srwi.pixellens.actions.ViewAsImageAction" text="View as Image">
             <add-to-group group-id="XDebugger.ValueGroup" anchor="before" relative-to-action="PyDebugger.ViewArray"/>
         </action>
     </actions>
