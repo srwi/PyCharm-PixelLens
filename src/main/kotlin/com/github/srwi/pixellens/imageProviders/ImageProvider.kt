@@ -161,7 +161,7 @@ abstract class ImageProvider {
         }
     }
 
-    fun shapeSupported(value: PyDebugValue): Boolean {
+    open fun shapeSupported(value: PyDebugValue): Boolean {
         val shape = value.shape as String
         val shapeList = convertStringToShapeList(shape)
         if (shapeList.size <= 4) return true

@@ -41,6 +41,10 @@ class PillowImageProvider : ImageProvider() {
         }
     }
 
+    override fun shapeSupported(value: PyDebugValue): Boolean {
+        return true
+    }
+
     override fun typeSupported(value: PyDebugValue): Boolean {
         return true
     }

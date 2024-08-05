@@ -2,8 +2,8 @@
 
 <a href="https://paypal.me/rumswinkel"><img src="https://img.shields.io/static/v1?label=Donate&message=%E2%9D%A4&logo=PayPal&color=%23009cde"/></a>
 ![Build](https://github.com/srwi/PyCharm-PixelLens/workflows/Build/badge.svg)
-[![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
-[![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
+[![Version](https://img.shields.io/jetbrains/plugin/v/25039-pixellens.svg)](https://plugins.jetbrains.com/plugin/25039-pixellens)
+[![Downloads](https://img.shields.io/jetbrains/plugin/d/25039-pixellens.svg)](https://plugins.jetbrains.com/plugin/25039-pixellens)
 
 <!-- Plugin description -->
 [PixelLens](https://github.com/srwi/PyCharm-PixelLens) is a free and [fully open source](https://github.com/srwi/PyCharm-PixelLens) PyCharm plugin designed to enhance the image visualization capabilities while debugging NumPy, PyTorch, TensorFlow or PIL (Pillow) image data.
@@ -17,11 +17,11 @@ PixelLens is capable of displaying 1D, 2D, 3D or 4D data by right clicking any s
 - Apply value normalization or Viridis colormap for better visibility
 - Transpose dimensions (CHW ↔ HWC) or reverse channels (RGB ↔ BGR)
 - Save or copy the displayed image for easy sharing
+<!-- Plugin description end -->
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/2ad50efd-efa3-4cd8-8789-44dfb1b277ce" width="550">
 <p>
-<!-- Plugin description end -->
 
 ## Installation
 
