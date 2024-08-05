@@ -22,10 +22,10 @@ class BatchData (
     var channelsFirst: Boolean = false
         set(value) {
             if (value != field) {
-                if (value) {
-                    data = data.transpose(0, 3, 1, 2)
+                data = if (value) {
+                    data.transpose(0, 3, 1, 2)
                 } else {
-                    data = data.transpose(0, 2, 3, 1)
+                    data.transpose(0, 2, 3, 1)
                 }
                 field = value
             }
