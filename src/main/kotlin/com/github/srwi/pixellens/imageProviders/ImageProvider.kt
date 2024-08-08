@@ -1,6 +1,12 @@
 package com.github.srwi.pixellens.imageProviders
 
 import com.github.srwi.pixellens.data.BatchData
+import com.github.srwi.pixellens.interop.Python.evaluateExpression
+import com.github.srwi.pixellens.interop.Python.executeStatement
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.Task
+import com.intellij.openapi.project.Project
 import com.jetbrains.python.debugger.PyDebugValue
 import com.jetbrains.python.debugger.PyFrameAccessor
 import kotlinx.serialization.Serializable
@@ -12,99 +18,101 @@ import org.jetbrains.kotlinx.multik.ndarray.data.DN
 import org.jetbrains.kotlinx.multik.ndarray.data.NDArray
 import java.nio.ByteBuffer
 import java.util.*
+import java.util.concurrent.CompletableFuture
+import kotlin.math.ceil
+import kotlin.math.min
 
+data class ImageAndMetadata(val bytes: ByteArray, val metadata: Metadata)
 
 @Serializable
-data class Metadata(val shape: List<Int>, val dtype: String)
-
-@Serializable
-data class Payload(val name: String, val data: String, val metadata: Metadata)
+data class Metadata(val name: String, val length: Int, val shape: List<Int>, val dtype: String)
 
 data class Batch(val name: String, val data: BatchData, val metadata: Metadata)
 
 abstract class ImageProvider {
-    fun getDataByVariableName(frameAccessor: PyFrameAccessor, name: String) : Batch {
-        val payload = getPayload(frameAccessor, name)
-        val batchData = processImageData(payload)
-        return batchData
+    val MetadataVariableName: String = "__tmp_img_metadata"
+
+    val Base64DataVariableName: String = "__tmp_img_base64"
+
+    fun getDataByVariableName(project: Project, frameAccessor: PyFrameAccessor, name: String): CompletableFuture<Batch> {
+        return CompletableFuture.supplyAsync {
+            val imageAndMetadata = getImageAndMetadata(project, frameAccessor, name)
+            processImageData(imageAndMetadata)
+        }
     }
 
-    fun deserializeJsonPayload(jsonPayloadString: String): Payload {
-        val json = Json { ignoreUnknownKeys = true }
-        return json.decodeFromString<Payload>(jsonPayloadString)
-    }
+    private fun processImageData(imageAndMetadata: ImageAndMetadata): Batch {
+        val metadata = imageAndMetadata.metadata
+        val bytes = imageAndMetadata.bytes
 
-    private fun processImageData(payload: Payload): Batch {
-        val imageBase64 = payload.data
-        val shape = payload.metadata.shape.toIntArray()
-        val dtype = payload.metadata.dtype
+        val shape = metadata.shape.toIntArray()
+        val dtype = metadata.dtype
 
-        val imageBytes = Base64.getDecoder().decode(imageBase64)
-        val imageBuffer = ByteBuffer.wrap(imageBytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        val imageBuffer = ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
 
         val multikArray: NDArray<*, D1> = when (dtype) {
             "float16" -> {
-                val array = ShortArray(imageBytes.size / 2)
+                val array = ShortArray(bytes.size / 2)
                 imageBuffer.asShortBuffer().get(array)
                 val floatArray = array.map { Float16.fromBits(it) }.toFloatArray()
                 mk.ndarray(floatArray)
             }
             "float32", "F" -> {
-                val array = FloatArray(imageBytes.size / 4)
+                val array = FloatArray(bytes.size / 4)
                 imageBuffer.asFloatBuffer().get(array)
                 mk.ndarray(array)
             }
             "float64" -> {
-                val array = DoubleArray(imageBytes.size / 8)
+                val array = DoubleArray(bytes.size / 8)
                 imageBuffer.asDoubleBuffer().get(array)
                 mk.ndarray(array)
             }
             "int8" -> {
-                val array = ByteArray(imageBytes.size)
+                val array = ByteArray(bytes.size)
                 imageBuffer.get(array)
                 mk.ndarray(array)
             }
             "int16" -> {
-                val array = ShortArray(imageBytes.size / 2)
+                val array = ShortArray(bytes.size / 2)
                 imageBuffer.asShortBuffer().get(array)
                 mk.ndarray(array)
             }
             "int32", "I" -> {
-                val array = IntArray(imageBytes.size / 4)
+                val array = IntArray(bytes.size / 4)
                 imageBuffer.asIntBuffer().get(array)
                 mk.ndarray(array)
             }
             "int64" -> {
-                val array = LongArray(imageBytes.size / 8)
+                val array = LongArray(bytes.size / 8)
                 imageBuffer.asLongBuffer().get(array)
                 mk.ndarray(array)
             }
             "uint8", "RGBA", "RGB", "L", "P" -> {
-                val array = ByteArray(imageBytes.size)
+                val array = ByteArray(bytes.size)
                 imageBuffer.get(array)
                 val shortArray = array.map { it.toUByte().toShort() }
                 mk.ndarray(shortArray)
             }
             "uint16" -> {
-                val array = ShortArray(imageBytes.size / 2)
+                val array = ShortArray(bytes.size / 2)
                 imageBuffer.asShortBuffer().get(array)
                 val intArray = array.map { it.toUShort().toInt() }
                 mk.ndarray(intArray)
             }
             "uint32" -> {
-                val array = IntArray(imageBytes.size / 4)
+                val array = IntArray(bytes.size / 4)
                 imageBuffer.asIntBuffer().get(array)
                 val longArray = array.map { it.toUInt().toLong() }
                 mk.ndarray(longArray)
             }
             "uint64" -> {
-                val array = LongArray(imageBytes.size / 8)
+                val array = LongArray(bytes.size / 8)
                 imageBuffer.asLongBuffer().get(array)
                 val doubleArray = array.map { it.toULong().toDouble() }
                 mk.ndarray(doubleArray)
             }
             "bool" -> {
-                val array = ByteArray(imageBytes.size)
+                val array = ByteArray(bytes.size)
                 imageBuffer.get(array)
                 mk.ndarray(array)
             }
@@ -123,7 +131,7 @@ abstract class ImageProvider {
             else -> multikArray.reshape(shape[0], shape[1], shape[2], shape[3], *shape.slice(4 until shape.size).toIntArray())
         } as NDArray<Any, DN>
 
-        return Batch(payload.name, BatchData(reshapedArray, dtype), payload.metadata)
+        return Batch(metadata.name, BatchData(reshapedArray, dtype), metadata)
     }
 
     private fun convertStringToShapeList(shapeString: String): List<Int> {
@@ -131,10 +139,10 @@ abstract class ImageProvider {
     }
 
     object Float16 {
-        fun fromBits(bits: Short): Float {
-            val s = (bits.toInt() shr 15) and 0x1
-            var e = (bits.toInt() shr 10) and 0x1f
-            var m = bits.toInt() and 0x3ff
+        fun fromBits(someBits: Short): Float {
+            val s = (someBits.toInt() shr 15) and 0x1
+            var e = (someBits.toInt() shr 10) and 0x1f
+            var m = someBits.toInt() and 0x3ff
 
             if (e == 0x1f) {
                 return if (m == 0) {
@@ -161,6 +169,54 @@ abstract class ImageProvider {
         }
     }
 
+    private fun getImageAndMetadata(project: Project, frameAccessor: PyFrameAccessor, name: String): ImageAndMetadata {
+        val future = CompletableFuture<ImageAndMetadata>()
+
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Retrieving data...", true) {
+            override fun run(indicator: ProgressIndicator) {
+                try {
+                    indicator.text = "Retrieving data..."
+                    indicator.fraction = 0.0
+
+                    executeStatement(frameAccessor, getDataPreparationCommand(name))
+
+                    val metadataJson = evaluateExpression(frameAccessor, "__tmp_img_metadata")?.value
+                        ?: throw IllegalStateException("Failed to retrieve data")
+                    val metadata = Json.decodeFromString<Metadata>(metadataJson)
+
+                    val totalSize = metadata.length
+                    val chunkSize = 3_000_000  // Balance between overhead caused by chunk transmission and progress update frequency
+                    val totalChunks = ceil(totalSize.toDouble() / chunkSize).toInt()
+
+                    val base64Data = StringBuilder(metadata.length)
+                    for (i in 0 until totalChunks) {
+                        if (indicator.isCanceled) {
+                            future.completeExceptionally(InterruptedException("Task was cancelled"))
+                            return
+                        }
+                        indicator.fraction = i.toDouble() / totalChunks
+
+                        val start = i * chunkSize
+                        val end = min(start + chunkSize, metadata.length)
+                        val chunk = evaluateExpression(frameAccessor, "__tmp_img_base64[$start:$end]")?.value
+                            ?: throw IllegalStateException("Got empty chunk")
+                        base64Data.append(chunk)
+                    }
+                    indicator.fraction = 1.0
+                    val imageBytes = Base64.getDecoder().decode(base64Data.toString())
+
+                    future.complete(ImageAndMetadata(imageBytes, metadata))
+                } catch (e: Exception) {
+                    future.completeExceptionally(e)
+                } finally {
+                    executeStatement(frameAccessor, getCleanupCommand())
+                }
+            }
+        })
+
+        return future.get()
+    }
+
     open fun shapeSupported(value: PyDebugValue): Boolean {
         val shape = value.shape as String
         val shapeList = convertStringToShapeList(shape)
@@ -174,5 +230,7 @@ abstract class ImageProvider {
 
     abstract fun typeSupported(value: PyDebugValue): Boolean
 
-    abstract fun getPayload(frameAccessor: PyFrameAccessor, name: String) : Payload
+    abstract fun getDataPreparationCommand(variableName: String): String
+
+    abstract fun getCleanupCommand(): String
 }

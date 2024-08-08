@@ -139,7 +139,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         val document: ImageDocument = imageComponent.document
         document.value = image
         if (repaint) repaintImage()
-        ActivityTracker.getInstance().inc()  // Update toolbar actions
+        ActivityTracker.getInstance().inc()  // TODO: Use .updateActionsImmediately on toolbars
     }
 
     private fun setSidebarVisibility(visible: Boolean) {
