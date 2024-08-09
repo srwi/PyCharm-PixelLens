@@ -49,9 +49,10 @@ class ViewAsImageAction : AnAction() {
         super.update(e)
         try {
             val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
+            val processSupported = value.frameAccessor is PyDebugProcess  // Currently only regular debugging is supported
             val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
-            e.presentation.isVisible = imageProvider.typeSupported(value)
-            e.presentation.isEnabled = imageProvider.shapeSupported(value)
+            e.presentation.isVisible = processSupported && imageProvider.typeSupported(value)
+            e.presentation.isEnabled = processSupported && imageProvider.shapeSupported(value)
         } catch (_: Exception) {
             e.presentation.isVisible = false
         }
