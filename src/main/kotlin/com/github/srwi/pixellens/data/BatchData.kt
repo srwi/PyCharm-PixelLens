@@ -9,23 +9,26 @@ import java.awt.image.DataBufferByte
 import kotlin.math.pow
 
 class BatchData (
-    originalData: NDArray<Any, DN>, private val originalDataType: String
+    data: NDArray<Any, DN>, dtype: String
 ) {
-    private var data: NDArray<Any, D4>
+    private var originalData: NDArray<Any, D4>
+    private var rescaledData: NDArray<Float, D4>
     private var unsqueezedLastDim: Boolean = false
 
     init {
-        val reshaped = reshapeData(originalData)
-        data = reshaped
+        val reshaped = reshapeData(data)
+
+        originalData = reshaped
+        rescaledData = adjustValueRange(reshaped, dtype)
     }
 
     var channelsFirst: Boolean = false
         set(value) {
             if (value != field) {
-                data = if (value) {
-                    data.transpose(0, 3, 1, 2)
+                rescaledData = if (value) {
+                    rescaledData.transpose(0, 3, 1, 2)
                 } else {
-                    data.transpose(0, 2, 3, 1)
+                    rescaledData.transpose(0, 2, 3, 1)
                 }
                 field = value
             }
@@ -37,13 +40,13 @@ class BatchData (
 
     var reversedChannels: Boolean = false
 
-    val batchSize: Int get() = data.shape[0]
+    val batchSize: Int get() = rescaledData.shape[0]
 
-    val height: Int get() = data.shape[1]
+    val height: Int get() = rescaledData.shape[1]
 
-    val width: Int get() = data.shape[2]
+    val width: Int get() = rescaledData.shape[2]
 
-    val channels: Int get() = data.shape[3]
+    val channels: Int get() = rescaledData.shape[3]
 
     private fun reshapeData(array: NDArray<Any, DN>): NDArray<Any, D4> {
         when (array.shape.size) {
@@ -73,7 +76,7 @@ class BatchData (
         throw Exception("Shape ${array.shape.contentToString()} not supported.")
     }
 
-    private fun adjustValueRange(array: NDArray<Any, D3>, dataType: String): NDArray<Float, D3> {
+    private fun adjustValueRange(array: NDArray<Any, D4>, dataType: String): NDArray<Float, D4> {
         val preprocessed = when (dataType) {
             "int8" -> array.asType<Float>() + 128f
             "uint8", "RGBA", "RGB", "L", "P" -> array.asType<Float>()
@@ -95,7 +98,7 @@ class BatchData (
         require(x in 0 until width) { "Invalid x coordinate: $x" }
         require(y in 0 until height) { "Invalid y coordinate: $y" }
 
-        val imageData = data[batchIndex] as NDArray<Any, D3>
+        val imageData = originalData[batchIndex] as NDArray<Any, D3>
 
         if (channel == null) {
             return if (unsqueezedLastDim) {
@@ -104,8 +107,7 @@ class BatchData (
                 imageData[y, x]
             }
         } else {
-            val adjustedChannel = if (reversedChannels) channels - channel - 1 else channel
-            return imageData[y, x, adjustedChannel]
+            return imageData[y, x, adjustChannelOrder(channel)]
         }
     }
 
@@ -113,26 +115,23 @@ class BatchData (
         require(batchIndex in 0 until batchSize) { "Invalid batch index: $batchIndex" }
         require(channel in 0 until channels || channel == null) { "Invalid channel index: $channel" }
 
-        val imageData = data[batchIndex] as NDArray<Any, D3>
+        val imageData = rescaledData[batchIndex] as NDArray<Float, D3>
 
-        val channelData = if (channel == null) {
-            imageData.deepCopy()
+        var channelData = if (channel == null) {
+            imageData
         } else {
-            val adjustedChannel = if (reversedChannels) channels - channel - 1 else channel
-            // unsqueeze will create a copy
-            imageData[0 until imageData.shape[0], 0 until imageData.shape[1], adjustedChannel].unsqueeze(2)
-        } as NDArray<Any, D3>
-
-        var rescaledChannelData = adjustValueRange(channelData, originalDataType)
+            val adjustedChannel = adjustChannelOrder(channel)
+            imageData[0 until imageData.shape[0], 0 until imageData.shape[1], adjustedChannel until (adjustedChannel + 1)]
+        } as NDArray<Float, D3>
 
         if (normalized) {
-            rescaledChannelData = normalizeData(rescaledChannelData)
+            channelData = normalizeData(channelData)
         }
-        if (grayscaleColormap && rescaledChannelData.shape[2] == 1) {
-            rescaledChannelData = applyColormap(rescaledChannelData)
+        if (grayscaleColormap && channelData.shape[2] == 1) {
+            channelData = applyColormap(channelData)
         }
 
-        return getBufferedImage(rescaledChannelData)
+        return getBufferedImage(channelData)
     }
 
     private fun normalizeData(someData: NDArray<Float, D3>): NDArray<Float, D3> {
@@ -144,14 +143,15 @@ class BatchData (
     private fun applyColormap(someData: NDArray<Float, D3>): NDArray<Float, D3> {
         require(someData.shape[2] == 1) { "Data must have only one channel for colormap." }
 
-        val (redOffset, greenOffset, blueOffset) = channelIndexOffsets()
         val coloredImage = mk.zeros<Float>(height, width, 3)
+        val redOffset = adjustChannelOrder(0)
+        val blueOffset = adjustChannelOrder(2)
         for (y in 0 until height) {
             for (x in 0 until width) {
                 val value = someData[y, x, 0] / 255f
                 val (red, green, blue) = viridisColor(value)
                 coloredImage[y, x, redOffset] = red
-                coloredImage[y, x, greenOffset] = green
+                coloredImage[y, x, 1] = green
                 coloredImage[y, x, blueOffset] = blue
             }
         }
@@ -168,29 +168,28 @@ class BatchData (
             else -> throw Exception("Unsupported number of channels: $channels")
         }
 
-        val byteData = someData.clip(0f, 255f).asType<Byte>().flatten()
+        val byteData = someData.asType<Byte>().flatten()
         val buffer = (bufferedImage.raster.dataBuffer as DataBufferByte).data
-        val (redOffset, greenOffset, blueOffset) = channelIndexOffsets()
+        val redOffset = adjustChannelOrder(0)
+        val blueOffset = adjustChannelOrder(2)
         when (bufferChannels) {
             1 -> {
                 for (i in buffer.indices) {
                     buffer[i] = byteData[i]
                 }
             }
-
             3 -> {
                 for (i in 0 until height * width) {
                     buffer[i * 3] = byteData[i * 3 + blueOffset]
-                    buffer[i * 3 + 1] = byteData[i * 3 + greenOffset]
+                    buffer[i * 3 + 1] = byteData[i * 3 + 1]  // green
                     buffer[i * 3 + 2] = byteData[i * 3 + redOffset]
                 }
             }
-
             4 -> {
                 for (i in 0 until height * width) {
                     buffer[i * 4] = byteData[i * 4 + 3]  // alpha
                     buffer[i * 4 + 1] = byteData[i * 4 + blueOffset]
-                    buffer[i * 4 + 2] = byteData[i * 4 + greenOffset]
+                    buffer[i * 4 + 2] = byteData[i * 4 + 1]  // green
                     buffer[i * 4 + 3] = byteData[i * 4 + redOffset]
                 }
             }
@@ -198,9 +197,14 @@ class BatchData (
         return bufferedImage
     }
 
-    private fun channelIndexOffsets() = when (reversedChannels) {
-        true -> Triple(2, 1, 0)
-        false -> Triple(0, 1, 2)
+    private fun adjustChannelOrder(channel: Int): Int {
+        if (!reversedChannels)
+            return channel
+
+        return when (channel) {
+            0, 2 -> 2 - channel
+            else -> channel
+        }
     }
 
     // TODO: Convert to lookup table
