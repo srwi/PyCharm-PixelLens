@@ -354,6 +354,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         imageComponent.removeMouseWheelListener(wheelAdapter)
         scrollPane.removeMouseWheelListener(wheelAdapter)
         scrollPane.removeComponentListener(resizeAdapter)
+        // TODO: Clear data to prevent memory leak
         super.dispose()
     }
 

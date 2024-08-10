@@ -1,12 +1,8 @@
 package com.github.srwi.pixellens.imageProviders
 
 import com.github.srwi.pixellens.data.BatchData
-import com.github.srwi.pixellens.interop.Python.evaluateExpression
-import com.github.srwi.pixellens.interop.Python.executeStatement
+import com.github.srwi.pixellens.interop.Python
 import com.intellij.openapi.progress.ProgressIndicator
-import com.intellij.openapi.progress.ProgressManager
-import com.intellij.openapi.progress.Task
-import com.intellij.openapi.project.Project
 import com.jetbrains.python.debugger.PyDebugValue
 import com.jetbrains.python.debugger.PyFrameAccessor
 import kotlinx.serialization.Serializable
@@ -17,28 +13,47 @@ import org.jetbrains.kotlinx.multik.ndarray.data.D1
 import org.jetbrains.kotlinx.multik.ndarray.data.DN
 import org.jetbrains.kotlinx.multik.ndarray.data.NDArray
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.*
-import java.util.concurrent.CompletableFuture
-import kotlin.math.ceil
-import kotlin.math.min
 
+@Serializable
 data class ImageAndMetadata(val bytes: ByteArray, val metadata: Metadata)
 
 @Serializable
-data class Metadata(val name: String, val length: Int, val shape: List<Int>, val dtype: String)
+data class ImageBase64AndMetadata(val data: String, val metadata: Metadata)
+
+@Serializable
+data class Metadata(val name: String, val shape: List<Int>, val dtype: String)
 
 data class Batch(val name: String, val data: BatchData, val metadata: Metadata)
 
 abstract class ImageProvider {
-    val MetadataVariableName: String = "__tmp_img_metadata"
 
-    val Base64DataVariableName: String = "__tmp_img_base64"
+    fun getDataByVariableName(frameAccessor: PyFrameAccessor, progressIndicator: ProgressIndicator, name: String): Batch {
+        val imageAndMetadata = getImageAndMetadata(frameAccessor, progressIndicator, name)
+        return processImageData(imageAndMetadata)
+    }
 
-    fun getDataByVariableName(project: Project, frameAccessor: PyFrameAccessor, name: String): CompletableFuture<Batch> {
-        return CompletableFuture.supplyAsync {
-            val imageAndMetadata = getImageAndMetadata(project, frameAccessor, name)
-            processImageData(imageAndMetadata)
-        }
+    private fun getImageAndMetadata(frameAccessor: PyFrameAccessor, progressIndicator: ProgressIndicator, variableName: String): ImageAndMetadata {
+        val jsonDataVariableName = prepareData(frameAccessor, variableName)
+        val jsonData = SocketDataTransmitter().getJsonData(frameAccessor, progressIndicator, jsonDataVariableName)
+        cleanUpData(frameAccessor, jsonDataVariableName)
+
+        val imageDataWithMetadata = Json.decodeFromString<ImageBase64AndMetadata>(jsonData)
+        val imageBytes = Base64.getDecoder().decode(imageDataWithMetadata.data)
+
+        return ImageAndMetadata(imageBytes, imageDataWithMetadata.metadata)
+    }
+
+    private fun prepareData(frameAccessor: PyFrameAccessor, variableName: String): String {
+        val jsonDataVariableName = "__tmp_json_data"
+        val command = getDataPreparationCommand(variableName, jsonDataVariableName)
+        Python.executeStatement(frameAccessor, command)
+        return jsonDataVariableName
+    }
+
+    private fun cleanUpData(frameAccessor: PyFrameAccessor, variableName: String) {
+        Python.executeStatement(frameAccessor, "del $variableName")
     }
 
     private fun processImageData(imageAndMetadata: ImageAndMetadata): Batch {
@@ -48,7 +63,7 @@ abstract class ImageProvider {
         val shape = metadata.shape.toIntArray()
         val dtype = metadata.dtype
 
-        val imageBuffer = ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        val imageBuffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
 
         val multikArray: NDArray<*, D1> = when (dtype) {
             "float16" -> {
@@ -169,54 +184,6 @@ abstract class ImageProvider {
         }
     }
 
-    private fun getImageAndMetadata(project: Project, frameAccessor: PyFrameAccessor, name: String): ImageAndMetadata {
-        val future = CompletableFuture<ImageAndMetadata>()
-
-        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Retrieving data...", true) {
-            override fun run(indicator: ProgressIndicator) {
-                try {
-                    indicator.text = "Retrieving data..."
-                    indicator.fraction = 0.0
-
-                    executeStatement(frameAccessor, getDataPreparationCommand(name))
-
-                    val metadataJson = evaluateExpression(frameAccessor, "__tmp_img_metadata")?.value
-                        ?: throw IllegalStateException("Failed to retrieve data")
-                    val metadata = Json.decodeFromString<Metadata>(metadataJson)
-
-                    val totalSize = metadata.length
-                    val chunkSize = 3_000_000  // Balance between overhead caused by chunk transmission and progress update frequency
-                    val totalChunks = ceil(totalSize.toDouble() / chunkSize).toInt()
-
-                    val base64Data = StringBuilder(metadata.length)
-                    for (i in 0 until totalChunks) {
-                        if (indicator.isCanceled) {
-                            future.completeExceptionally(InterruptedException("Task was cancelled"))
-                            return
-                        }
-                        indicator.fraction = i.toDouble() / totalChunks
-
-                        val start = i * chunkSize
-                        val end = min(start + chunkSize, metadata.length)
-                        val chunk = evaluateExpression(frameAccessor, "__tmp_img_base64[$start:$end]")?.value
-                            ?: throw IllegalStateException("Got empty chunk")
-                        base64Data.append(chunk)
-                    }
-                    indicator.fraction = 1.0
-                    val imageBytes = Base64.getDecoder().decode(base64Data.toString())
-
-                    future.complete(ImageAndMetadata(imageBytes, metadata))
-                } catch (e: Exception) {
-                    future.completeExceptionally(e)
-                } finally {
-                    executeStatement(frameAccessor, getCleanupCommand())
-                }
-            }
-        })
-
-        return future.get()
-    }
-
     open fun shapeSupported(value: PyDebugValue): Boolean {
         val shape = value.shape as String
         val shapeList = convertStringToShapeList(shape)
@@ -230,7 +197,5 @@ abstract class ImageProvider {
 
     abstract fun typeSupported(value: PyDebugValue): Boolean
 
-    abstract fun getDataPreparationCommand(variableName: String): String
-
-    abstract fun getCleanupCommand(): String
+    abstract fun getDataPreparationCommand(variableName: String, outputVariableName: String): String
 }

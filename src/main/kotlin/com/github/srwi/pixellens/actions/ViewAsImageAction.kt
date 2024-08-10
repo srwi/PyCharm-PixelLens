@@ -7,7 +7,11 @@ import com.github.srwi.pixellens.imageProviders.ImageProviderFactory
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.Task
 import com.intellij.xdebugger.impl.ui.tree.actions.XDebuggerTreeActionBase
+import com.jetbrains.python.debugger.PyDebugProcess
 import com.jetbrains.python.debugger.PyDebugValue
 import javax.swing.SwingUtilities
 
@@ -15,30 +19,39 @@ class ViewAsImageAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
         val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
-        val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
-        val futureBatch = imageProvider.getDataByVariableName(project, value.frameAccessor, value.name)
 
-        futureBatch.thenAccept { batch ->
-            batch.data.normalized = UserSettings.normalizeEnabled
-            batch.data.channelsFirst = UserSettings.transposeEnabled
-            batch.data.reversedChannels = UserSettings.reverseChannelsEnabled
-            batch.data.grayscaleColormap = UserSettings.applyColormapEnabled
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Retrieving data...", true) {
+            override fun run(progressIndicator: ProgressIndicator) {
+                try {
+                    val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
+                    val batch = imageProvider.getDataByVariableName(value.frameAccessor, progressIndicator, value.name)
+                    batch.data.normalized = UserSettings.normalizeEnabled
+                    batch.data.channelsFirst = UserSettings.transposeEnabled
+                    batch.data.reversedChannels = UserSettings.reverseChannelsEnabled
+                    batch.data.grayscaleColormap = UserSettings.applyColormapEnabled
 
-            SwingUtilities.invokeLater {
-                ImageViewer(project, batch).show()
+                    SwingUtilities.invokeLater {
+                        ImageViewer(project, batch).show()
+                    }
+                } catch (e: InterruptedException) {
+                    // Operation cancelled by user
+                }
+                catch (e: Exception) {
+                    val formattedException = e.message + "\n" + e.stackTrace.joinToString("\n")
+
+                    SwingUtilities.invokeLater {
+                        ErrorMessageDialog(
+                            project,
+                            "Error",
+                            "The selected data could not be viewed as image.",
+                            formattedException
+                        ).show()
+                    }
+                } finally {
+                    progressIndicator.stop()
+                }
             }
-        }.exceptionally { throwable ->
-            val formattedException = throwable.message + "\n" + throwable.stackTrace.joinToString("\n")
-            SwingUtilities.invokeLater {
-                ErrorMessageDialog(
-                    project,
-                    "Error",
-                    "The selected data could not be viewed as image.",
-                    formattedException
-                ).show()
-            }
-            null
-        }
+        })
     }
 
     override fun getActionUpdateThread(): ActionUpdateThread {
