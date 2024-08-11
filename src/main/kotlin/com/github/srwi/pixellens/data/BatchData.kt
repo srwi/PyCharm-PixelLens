@@ -9,7 +9,6 @@ import org.jetbrains.kotlinx.multik.ndarray.data.*
 import org.jetbrains.kotlinx.multik.ndarray.operations.*
 import java.awt.image.BufferedImage
 import java.awt.image.DataBufferByte
-import kotlin.math.pow
 
 class BatchData (
     data: NDArray<Any, DN>, dtype: String
@@ -158,8 +157,7 @@ class BatchData (
         val blueOffset = adjustChannelOrder(2, numChannels = 3)
         for (y in 0 until height) {
             for (x in 0 until width) {
-                val value = someData[y, x, 0] / 255f
-                val (red, green, blue) = viridisColor(value)
+                val (red, green, blue) = Colormap.viridis[someData[y, x, 0].toInt()]
                 coloredImage[y, x, redOffset] = red
                 coloredImage[y, x, 1] = green
                 coloredImage[y, x, blueOffset] = blue
@@ -202,28 +200,5 @@ class BatchData (
             0, 2 -> 2 - channel
             else -> channel
         }
-    }
-
-    // TODO: Convert to lookup table
-    private fun viridisColor(value: Float): Triple<Float, Float, Float> {
-        val c0 = listOf(0.2777273272234177, 0.005407344544966578, 0.3340998053353061)
-        val c1 = listOf(0.1050930431085774, 1.404613529898575, 1.384590162594685)
-        val c2 = listOf(-0.3308618287255563, 0.214847559468213, 0.09509516302823659)
-        val c3 = listOf(-4.634230498983486, -5.799100973351585, -19.33244095627987)
-        val c4 = listOf(6.228269936347081, 14.17993336680509, 56.69055260068105)
-        val c5 = listOf(4.776384997670288, -13.74514537774601, -65.35303263337234)
-        val c6 = listOf(-5.435455855934631, 4.645852612178535, 26.3124352495832)
-
-        val v = value.coerceIn(0f, 1f)
-
-        fun channel(i: Int): Float {
-            return (c0[i] + v * (c1[i] + v * (c2[i] + v * (c3[i] + v * (c4[i] + v * (c5[i] + v * c6[i])))))).toFloat()
-        }
-
-        return Triple(
-            channel(0).pow(2).times(255).coerceIn(0f, 255f),
-            channel(1).pow(2).times(255).coerceIn(0f, 255f),
-            channel(2).pow(2).times(255).coerceIn(0f, 255f)
-        )
     }
 }
