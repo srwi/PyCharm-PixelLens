@@ -1,5 +1,8 @@
 package com.github.srwi.pixellens.data
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import org.jetbrains.kotlinx.multik.api.mk
 import org.jetbrains.kotlinx.multik.api.zeros
 import org.jetbrains.kotlinx.multik.ndarray.data.*
@@ -29,6 +32,11 @@ class BatchData (
                     rescaledData.transpose(0, 3, 1, 2)
                 } else {
                     rescaledData.transpose(0, 2, 3, 1)
+                }
+                originalData = if (value) {
+                    originalData.transpose(0, 3, 1, 2)
+                } else {
+                    originalData.transpose(0, 2, 3, 1)
                 }
                 field = value
             }
@@ -107,11 +115,11 @@ class BatchData (
                 imageData[y, x]
             }
         } else {
-            return imageData[y, x, adjustChannelOrder(channel)]
+            return imageData[y, x, adjustChannelOrder(channel, numChannels = channels)]
         }
     }
 
-    fun getImage(batchIndex: Int = 0, channel: Int? = null): BufferedImage {
+    suspend fun getImage(batchIndex: Int = 0, channel: Int? = null): BufferedImage = withContext(Dispatchers.Default) {
         require(batchIndex in 0 until batchSize) { "Invalid batch index: $batchIndex" }
         require(channel in 0 until channels || channel == null) { "Invalid channel index: $channel" }
 
@@ -120,18 +128,20 @@ class BatchData (
         var channelData = if (channel == null) {
             imageData
         } else {
-            val adjustedChannel = adjustChannelOrder(channel)
+            val adjustedChannel = adjustChannelOrder(channel, numChannels = channels)
             imageData[0 until imageData.shape[0], 0 until imageData.shape[1], adjustedChannel until (adjustedChannel + 1)]
         } as NDArray<Float, D3>
 
         if (normalized) {
             channelData = normalizeData(channelData)
+            ensureActive()
         }
         if (grayscaleColormap && channelData.shape[2] == 1) {
             channelData = applyColormap(channelData)
+            ensureActive()
         }
 
-        return getBufferedImage(channelData)
+        getBufferedImage(channelData)
     }
 
     private fun normalizeData(someData: NDArray<Float, D3>): NDArray<Float, D3> {
@@ -144,8 +154,8 @@ class BatchData (
         require(someData.shape[2] == 1) { "Data must have only one channel for colormap." }
 
         val coloredImage = mk.zeros<Float>(height, width, 3)
-        val redOffset = adjustChannelOrder(0)
-        val blueOffset = adjustChannelOrder(2)
+        val redOffset = adjustChannelOrder(0, numChannels = 3)
+        val blueOffset = adjustChannelOrder(2, numChannels = 3)
         for (y in 0 until height) {
             for (x in 0 until width) {
                 val value = someData[y, x, 0] / 255f
@@ -159,7 +169,7 @@ class BatchData (
         return coloredImage
     }
 
-    private fun getBufferedImage(someData: NDArray<Float, D3>): BufferedImage {
+    private suspend fun getBufferedImage(someData: NDArray<Float, D3>): BufferedImage = withContext(Dispatchers.Default) {
         val bufferChannels = someData.shape[2]
         val bufferedImage = when (bufferChannels) {
             1 -> BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY)
@@ -168,37 +178,24 @@ class BatchData (
             else -> throw Exception("Unsupported number of channels: $channels")
         }
 
-        val byteData = someData.asType<Byte>().flatten()
         val buffer = (bufferedImage.raster.dataBuffer as DataBufferByte).data
-        val redOffset = adjustChannelOrder(0)
-        val blueOffset = adjustChannelOrder(2)
-        when (bufferChannels) {
-            1 -> {
-                for (i in buffer.indices) {
-                    buffer[i] = byteData[i]
+        for (y in 0 until height) {
+            val yOffset = y * width
+            for (x in 0 until width) {
+                val baseOffset = (yOffset + x) * bufferChannels
+                for (c in 0 until bufferChannels) {
+                    val adjustedChannel = adjustChannelOrder(bufferChannels - 1 - c, bufferChannels)
+                    buffer[baseOffset + c] = someData[y, x, adjustedChannel].toInt().toByte()
                 }
             }
-            3 -> {
-                for (i in 0 until height * width) {
-                    buffer[i * 3] = byteData[i * 3 + blueOffset]
-                    buffer[i * 3 + 1] = byteData[i * 3 + 1]  // green
-                    buffer[i * 3 + 2] = byteData[i * 3 + redOffset]
-                }
-            }
-            4 -> {
-                for (i in 0 until height * width) {
-                    buffer[i * 4] = byteData[i * 4 + 3]  // alpha
-                    buffer[i * 4 + 1] = byteData[i * 4 + blueOffset]
-                    buffer[i * 4 + 2] = byteData[i * 4 + 1]  // green
-                    buffer[i * 4 + 3] = byteData[i * 4 + redOffset]
-                }
-            }
+            ensureActive()
         }
-        return bufferedImage
+
+        bufferedImage
     }
 
-    private fun adjustChannelOrder(channel: Int): Int {
-        if (!reversedChannels)
+    private fun adjustChannelOrder(channel: Int, numChannels: Int): Int {
+        if (!reversedChannels || (numChannels != 3 && numChannels != 4))
             return channel
 
         return when (channel) {

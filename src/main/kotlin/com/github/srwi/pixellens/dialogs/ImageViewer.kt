@@ -23,6 +23,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.Magnificator
 import com.intellij.ui.components.TwoSideComponent
 import com.intellij.util.ui.JBUI
+import kotlinx.coroutines.*
 import org.intellij.images.actions.ToggleTransparencyChessboardAction
 import org.intellij.images.editor.ImageDocument
 import org.intellij.images.editor.ImageZoomModel
@@ -44,6 +45,7 @@ import java.beans.PropertyChangeEvent
 import java.beans.PropertyChangeListener
 import javax.swing.*
 import javax.swing.border.Border
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.max
 
 class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable {
@@ -63,8 +65,9 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
             field = value
             batch.data.channelsFirst = value
             sidebar.updateChannelList(batch.data.channels)
-            internalZoomModel.isZoomLevelChanged = true  // TODO: restore fit zoom to window
-            updateImage()
+            updateImage(repaint = false).invokeOnCompletion {
+                smartZoom()
+            }
         }
 
     var reverseChannelsEnabled: Boolean = batch.data.reversedChannels
@@ -101,6 +104,8 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
     private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
     private val imageComponent: ImageComponent = ImageComponent()
+    private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var updateJob: Job? = null
     private val internalZoomModel: ImageZoomModelImpl = ImageZoomModelImpl(imageComponent)
     private val wheelAdapter = ImageWheelAdapter()
     private val resizeAdapter = ImageResizeAdapter()
@@ -130,16 +135,30 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
         init()
 
-        updateImage(repaint = false)
-        smartZoom()
+        updateImage(repaint = false).invokeOnCompletion {
+            smartZoom()
+        }
     }
 
-    private fun updateImage(repaint: Boolean = true) {
-        val image = batch.data.getImage(selectedBatchIndex, selectedChannelIndex)
-        val document: ImageDocument = imageComponent.document
-        document.value = image
-        if (repaint) repaintImage()
-        ActivityTracker.getInstance().inc()  // TODO: Use .updateActionsImmediately on toolbars
+    private fun updateImage(repaint: Boolean = true): Job {
+        updateJob?.cancel()
+        updateJob = coroutineScope.launch {
+            try {
+                val image = withContext(Dispatchers.Default) {
+                    batch.data.getImage(selectedBatchIndex, selectedChannelIndex)
+                }
+
+                withContext(Dispatchers.Main) {
+                    val document: ImageDocument = imageComponent.document
+                    document.value = image
+                    if (repaint) repaintImage()
+                    ActivityTracker.getInstance().inc()
+                }
+            } catch (e: CancellationException) {
+                // Task was cancelled, do nothing
+            }
+        }
+        return updateJob!!
     }
 
     private fun setSidebarVisibility(visible: Boolean) {
@@ -241,14 +260,12 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
         imageComponent.addMouseMotionListener(object : MouseMotionAdapter() {
             override fun mouseMoved(e: MouseEvent) {
-                val mouseX = e.x
-                val mouseY = e.y
                 val zoomFactor = internalZoomModel.zoomFactor
 
-                val originalX = (mouseX / zoomFactor).toInt()
-                val originalY = (mouseY / zoomFactor).toInt()
+                val originalX = (e.x / zoomFactor).toInt().coerceIn(0 until batch.data.width)
+                val originalY = (e.y / zoomFactor).toInt().coerceIn(0 until batch.data.height)
 
-                val value = getDataValueAt(originalX, originalY)
+                val value = batch.data.getValue(selectedBatchIndex, originalX, originalY, selectedChannelIndex)
                 val formattedValue = Utils.formatArrayOrScalar(value)
 
                 coordinateValueLabel.text = "($originalX, $originalY): $formattedValue"
@@ -262,10 +279,6 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         })
 
         return statusBar
-    }
-
-    private fun getDataValueAt(x: Int, y: Int): Any {
-        return batch.data.getValue(selectedBatchIndex, x, y, selectedChannelIndex)
     }
 
     private fun createImagePanel(): JComponent {
@@ -351,6 +364,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     }
 
     override fun dispose() {
+        updateJob?.cancel()
         imageComponent.removeMouseWheelListener(wheelAdapter)
         scrollPane.removeMouseWheelListener(wheelAdapter)
         scrollPane.removeComponentListener(resizeAdapter)
