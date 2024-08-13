@@ -32,7 +32,6 @@ import org.intellij.images.editor.actions.ActualSizeAction
 import org.intellij.images.editor.actions.ToggleGridAction
 import org.intellij.images.editor.actions.ZoomInAction
 import org.intellij.images.editor.actions.ZoomOutAction
-import org.intellij.images.options.Options
 import org.intellij.images.options.OptionsManager
 import org.intellij.images.ui.ImageComponent
 import org.intellij.images.ui.ImageComponentDecorator
@@ -41,8 +40,6 @@ import java.awt.Component
 import java.awt.Dimension
 import java.awt.Point
 import java.awt.event.*
-import java.beans.PropertyChangeEvent
-import java.beans.PropertyChangeListener
 import javax.swing.*
 import javax.swing.border.Border
 import kotlin.coroutines.cancellation.CancellationException
@@ -97,41 +94,42 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
             }
         }
 
-    private var selectedBatchIndex: Int = 0
-
     var selectedChannelIndex: Int? = if (batch.data.supportsMultiChannelDisplay()) null else 0
         private set
 
-    private val optionsChangeListener: PropertyChangeListener = OptionsChangeListener()
-    private val imageComponent: ImageComponent = ImageComponent()
-    private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private var updateJob: Job? = null
-    private val internalZoomModel: ImageZoomModelImpl = ImageZoomModelImpl(imageComponent)
-    private val wheelAdapter = ImageWheelAdapter()
-    private val resizeAdapter = ImageResizeAdapter()
-    private var scrollPane: JScrollPane = JBScrollPane()
+    private var selectedBatchIndex: Int = 0
 
-    private lateinit var sidebar: Sidebar
-    private lateinit var sidebarPanel: JPanel
+    private var updateJob: Job? = null
+    private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    private val editorMouseWheelAdapter = EditorMouseWheelAdapter()
+    private val editorResizeAdapter = EditorResizeAdapter()
+    private val editorActionPopupAdapter = EditorActionPopupAdapter()
+    private val mouseMotionAdapter = EditorMouseMotionAdapter()
+    private val mouseExitAdapter = EditorMouseExitAdapter()
+
+    private var scrollPane = JBScrollPane()
+    private val coordinateValueLabel = JLabel()
+    private val sidebar = Sidebar()
+    private val sidebarPanel = JPanel(BorderLayout())
+    private val imageComponent = ImageComponent()
+    private val internalZoomModel = ImageZoomModelImpl(imageComponent)
 
     init {
         title = batch.name
         isModal = false
 
-        val options = OptionsManager.getInstance().options
-        options.addPropertyChangeListener(optionsChangeListener, this)
-
-        val editorOptions = options.editorOptions
+        val editorOptions = OptionsManager.getInstance().options.editorOptions
         val chessboardOptions = editorOptions.transparencyChessboardOptions
         val gridOptions = editorOptions.gridOptions
+        imageComponent.addMouseListener(editorActionPopupAdapter)
+        imageComponent.setTransparencyChessboardBlankColor(chessboardOptions.blackColor)
         imageComponent.transparencyChessboardCellSize = chessboardOptions.cellSize
         imageComponent.transparencyChessboardWhiteColor = chessboardOptions.whiteColor
-        imageComponent.setTransparencyChessboardBlankColor(chessboardOptions.blackColor)
         imageComponent.gridLineZoomFactor = gridOptions.lineZoomFactor
         imageComponent.gridLineSpan = gridOptions.lineSpan
         imageComponent.gridLineColor = gridOptions.lineColor
         imageComponent.isBorderVisible = false
-        imageComponent.addMouseListener(EditorMouseAdapter())
 
         init()
 
@@ -161,10 +159,8 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         return updateJob!!
     }
 
-    private fun setSidebarVisibility(visible: Boolean) {
-        sidebarPanel.isVisible = visible
-        sidebarPanel.revalidate()
-        sidebarPanel.repaint()
+    private fun repaintImage() {
+        internalZoomModel.repaintImageComponent()
     }
 
     private fun smartZoom() {
@@ -172,8 +168,10 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         zoomModel.smartZoom(scrollPane.viewport.width, scrollPane.viewport.height)
     }
 
-    private fun repaintImage() {
-        internalZoomModel.repaintImageComponent()
+    private fun setSidebarVisibility(visible: Boolean) {
+        sidebarPanel.isVisible = visible
+        sidebarPanel.revalidate()
+        sidebarPanel.repaint()
     }
 
     override fun createCenterPanel(): JComponent {
@@ -190,31 +188,6 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         return JBUI.Borders.empty()
     }
 
-    private fun createRightPanel(): JComponent {
-        sidebar = Sidebar()
-        sidebar.updateChannelList(batch.data.channels)
-        sidebar.updateBatchList(batch.data.batchSize)
-        sidebar.setSelectedBatchIndex(selectedBatchIndex)
-        sidebar.setSelectedChannelIndex(selectedChannelIndex)
-
-        sidebar.onBatchIndexChanged { index ->
-            selectedBatchIndex = index
-            updateImage()
-        }
-
-        sidebar.onChannelIndexChanged { index ->
-            selectedChannelIndex = index
-            updateImage()
-        }
-
-        sidebarPanel = JPanel(BorderLayout()).apply {
-            add(sidebar.getComponent(), BorderLayout.CENTER)
-            isVisible = false
-        }
-
-        return sidebarPanel
-    }
-
     override fun createNorthPanel(): JComponent {
         val actionManager = ActionManager.getInstance()
         val actionGroup = createCustomActionGroup()
@@ -229,71 +202,73 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         sidebarToggleToolbar.apply { setReservePlaceAutoPopupIcon(false) }
 
         val twoSideComponent = TwoSideComponent(actionToolbar.component, sidebarToggleToolbar.component)
+
         return JPanel(BorderLayout()).apply {
-            border = BorderFactory.createMatteBorder(0, 0, 1, 0, JBColor.LIGHT_GRAY)
             add(twoSideComponent, BorderLayout.CENTER)
+            border = BorderFactory.createMatteBorder(0, 0, 1, 0, JBColor.LIGHT_GRAY)
             minimumSize = Dimension(650, 0)
         }
     }
 
     override fun createSouthPanel(): JComponent {
-        val statusBar = JPanel(BorderLayout()).apply {
-            border = BorderFactory.createMatteBorder(1, 0, 0, 0, JBColor.LIGHT_GRAY)
-        }
-        val coordinateValueLabel = JLabel().apply {
-            border = JBUI.Borders.empty(5)
-        }
         val shapeLabel = JLabel(batch.metadata.shape.joinToString("x")).apply {
             border = JBUI.Borders.empty(5)
         }
         val dtypeLabel = JLabel(batch.metadata.dtype).apply {
             border = JBUI.Borders.empty(5)
         }
-
         val rightPanel = JPanel(BorderLayout()).apply {
             add(shapeLabel, BorderLayout.WEST)
             add(dtypeLabel, BorderLayout.EAST)
         }
-
+        val statusBar = JPanel(BorderLayout()).apply {
+            border = BorderFactory.createMatteBorder(1, 0, 0, 0, JBColor.LIGHT_GRAY)
+        }
+        coordinateValueLabel.apply {
+            border = JBUI.Borders.empty(5)
+        }
         statusBar.add(coordinateValueLabel, BorderLayout.WEST)
         statusBar.add(rightPanel, BorderLayout.EAST)
 
-        imageComponent.addMouseMotionListener(object : MouseMotionAdapter() {
-            override fun mouseMoved(e: MouseEvent) {
-                val zoomFactor = internalZoomModel.zoomFactor
-
-                val originalX = (e.x / zoomFactor).toInt().coerceIn(0 until batch.data.width)
-                val originalY = (e.y / zoomFactor).toInt().coerceIn(0 until batch.data.height)
-
-                val value = batch.data.getValue(selectedBatchIndex, originalX, originalY, selectedChannelIndex)
-                val formattedValue = Utils.formatArrayOrScalar(value)
-
-                coordinateValueLabel.text = "($originalX, $originalY): $formattedValue"
-            }
-        })
-
-        imageComponent.addMouseListener(object : MouseAdapter() {
-            override fun mouseExited(e: MouseEvent) {
-                coordinateValueLabel.text = null
-            }
-        })
+        imageComponent.addMouseMotionListener(mouseMotionAdapter)
+        imageComponent.addMouseListener(mouseExitAdapter)
 
         return statusBar
     }
 
+    private fun createRightPanel(): JComponent {
+        sidebar.updateChannelList(batch.data.channels)
+        sidebar.updateBatchList(batch.data.batchSize)
+        sidebar.setSelectedBatchIndex(selectedBatchIndex)
+        sidebar.setSelectedChannelIndex(selectedChannelIndex)
+        sidebar.onBatchIndexChanged { index ->
+            selectedBatchIndex = index
+            updateImage()
+        }
+        sidebar.onChannelIndexChanged { index ->
+            selectedChannelIndex = index
+            updateImage()
+        }
+
+        sidebarPanel.apply {
+            add(sidebar.getComponent(), BorderLayout.CENTER)
+            isVisible = false
+        }
+
+        return sidebarPanel
+    }
+
     private fun createImagePanel(): JComponent {
         val view = ImageContainerPane(imageComponent)
-        scrollPane = ScrollPaneFactory.createScrollPane(view)
+        scrollPane = ScrollPaneFactory.createScrollPane(view) as JBScrollPane
         scrollPane.border = null
         scrollPane.viewport.background = EditorColorsManager.getInstance().globalScheme.defaultBackground
         scrollPane.verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED
         scrollPane.horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
-        scrollPane.addMouseWheelListener(wheelAdapter)
-        scrollPane.addComponentListener(resizeAdapter)
+        scrollPane.addMouseWheelListener(editorMouseWheelAdapter)
+        scrollPane.addComponentListener(editorResizeAdapter)
         return scrollPane
     }
-
-    override fun getDimensionServiceKey() = "com.github.srwi.pixellens.dialogs.ImageViewer"
 
     private fun createCustomActionGroup(): ActionGroup {
         return DefaultActionGroup().apply {
@@ -363,15 +338,6 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         }
     }
 
-    override fun dispose() {
-        updateJob?.cancel()
-        imageComponent.removeMouseWheelListener(wheelAdapter)
-        scrollPane.removeMouseWheelListener(wheelAdapter)
-        scrollPane.removeComponentListener(resizeAdapter)
-        // TODO: Clear data to prevent memory leak
-        super.dispose()
-    }
-
     private inner class ImageContainerPane(private val imageComponent: ImageComponent) : JBLayeredPane() {
         init {
             add(imageComponent)
@@ -404,7 +370,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         }
     }
 
-    private inner class ImageWheelAdapter : MouseWheelListener {
+    private inner class EditorMouseWheelAdapter : MouseWheelListener {
         override fun mouseWheelMoved(e: MouseWheelEvent) {
             val options = OptionsManager.getInstance().options
             val editorOptions = options.editorOptions
@@ -420,7 +386,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         }
     }
 
-    private inner class ImageResizeAdapter : ComponentAdapter() {
+    private inner class EditorResizeAdapter : ComponentAdapter() {
         override fun componentResized(e: ComponentEvent?) {
             if (!internalZoomModel.isZoomLevelChanged) {
                 internalZoomModel.fitZoomToWindow()
@@ -428,13 +394,33 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         }
     }
 
-    private inner class EditorMouseAdapter : PopupHandler() {
+    private inner class EditorActionPopupAdapter : PopupHandler() {
         override fun invokePopup(comp: Component, x: Int, y: Int) {
             val actionManager = ActionManager.getInstance()
             val actionGroup = createCustomActionGroup()
             val menu = actionManager.createActionPopupMenu(ImageEditorActions.ACTION_PLACE, actionGroup)
             val popupMenu = menu.component
             popupMenu.show(comp, x, y)
+        }
+    }
+
+    private inner class EditorMouseMotionAdapter : MouseMotionAdapter() {
+        override fun mouseMoved(e: MouseEvent) {
+            val zoomFactor = internalZoomModel.zoomFactor
+
+            val originalX = (e.x / zoomFactor).toInt().coerceIn(0 until batch.data.width)
+            val originalY = (e.y / zoomFactor).toInt().coerceIn(0 until batch.data.height)
+
+            val value = batch.data.getValue(selectedBatchIndex, originalX, originalY, selectedChannelIndex)
+            val formattedValue = Utils.formatArrayOrScalar(value)
+
+            coordinateValueLabel.text = "($originalX, $originalY): $formattedValue"
+        }
+    }
+
+    private inner class EditorMouseExitAdapter : MouseAdapter() {
+        override fun mouseExited(e: MouseEvent) {
+            coordinateValueLabel.text = null
         }
     }
 
@@ -471,18 +457,15 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         return internalZoomModel
     }
 
-    private inner class OptionsChangeListener : PropertyChangeListener {
-        override fun propertyChange(evt: PropertyChangeEvent) {
-            val options = evt.source as Options
-            val editorOptions = options.editorOptions
-            val chessboardOptions = editorOptions.transparencyChessboardOptions
-            val gridOptions = editorOptions.gridOptions
-            imageComponent.transparencyChessboardCellSize = chessboardOptions.cellSize
-            imageComponent.transparencyChessboardWhiteColor = chessboardOptions.whiteColor
-            imageComponent.setTransparencyChessboardBlankColor(chessboardOptions.blackColor)
-            imageComponent.gridLineZoomFactor = gridOptions.lineZoomFactor
-            imageComponent.gridLineSpan = gridOptions.lineSpan
-            imageComponent.gridLineColor = gridOptions.lineColor
-        }
+    override fun getDimensionServiceKey() = "com.github.srwi.pixellens.dialogs.ImageViewer"
+
+    override fun dispose() {
+        updateJob?.cancel()
+        imageComponent.removeMouseMotionListener(mouseMotionAdapter)
+        imageComponent.removeMouseListener(mouseExitAdapter)
+        imageComponent.removeMouseListener(editorActionPopupAdapter)
+        scrollPane.removeMouseWheelListener(editorMouseWheelAdapter)
+        scrollPane.removeComponentListener(editorResizeAdapter)
+        super.dispose()
     }
 }
