@@ -1,6 +1,7 @@
 package com.github.srwi.pixellens.imageProviders
 
 import com.github.srwi.pixellens.data.BatchData
+import com.github.srwi.pixellens.interop.Python.evaluateExpression
 import com.jetbrains.python.debugger.PyDebugValue
 import com.jetbrains.python.debugger.PyFrameAccessor
 import kotlinx.serialization.Serializable
@@ -163,7 +164,7 @@ abstract class ImageProvider {
 
     open fun shapeSupported(value: PyDebugValue): Boolean {
         val variableName = value.name
-        val shape = Python.evaluateExpression(value.frameAccessor, "$variableName.shape").value ?: return false
+        val shape = evaluateExpression(value.frameAccessor, "$variableName.shape")?.value ?: return false
         val shapeList = convertStringToShapeList(shape)
         if (shapeList.size <= 4) return true
         for (i in 0 until (shapeList.size - 4)) {
