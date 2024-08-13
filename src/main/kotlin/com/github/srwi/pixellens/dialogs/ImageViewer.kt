@@ -62,9 +62,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
             field = value
             batch.data.channelsFirst = value
             sidebar.updateChannelList(batch.data.channels)
-            updateImage(repaint = false).invokeOnCompletion {
-                smartZoom()
-            }
+            updateImage(smartZoom = true)
         }
 
     var reverseChannelsEnabled: Boolean = batch.data.reversedChannels
@@ -99,6 +97,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
     private var selectedBatchIndex: Int = 0
 
+    private var didInitialRepaint = false
     private var updateJob: Job? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -133,30 +132,31 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
         init()
 
-        updateImage(repaint = false).invokeOnCompletion {
-            smartZoom()
-        }
+        updateImage(smartZoom = true)
     }
 
-    private fun updateImage(repaint: Boolean = true): Job {
+    private fun updateImage(smartZoom: Boolean = false) {
         updateJob?.cancel()
         updateJob = coroutineScope.launch {
             try {
-                val image = withContext(Dispatchers.Default) {
+                // On the first repaint we want to ensure the smart zoom is applied.
+                // Therefore the coroutine should be non-cancellable
+                val image = withContext(if (didInitialRepaint) Dispatchers.Default else (Dispatchers.Default + NonCancellable)) {
                     batch.data.getImage(selectedBatchIndex, selectedChannelIndex)
                 }
 
-                withContext(Dispatchers.Main) {
+                withContext(if (didInitialRepaint) Dispatchers.Main else (Dispatchers.Main + NonCancellable)) {
                     val document: ImageDocument = imageComponent.document
                     document.value = image
-                    if (repaint) repaintImage()
                     ActivityTracker.getInstance().inc()
+                    if (smartZoom) smartZoom()
+                    repaintImage()
+                    didInitialRepaint = true
                 }
             } catch (e: CancellationException) {
                 // Task was cancelled, do nothing
             }
         }
-        return updateJob!!
     }
 
     private fun repaintImage() {
@@ -164,8 +164,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     }
 
     private fun smartZoom() {
-        val zoomModel = internalZoomModel
-        zoomModel.smartZoom(scrollPane.viewport.width, scrollPane.viewport.height)
+        internalZoomModel.smartZoom(scrollPane.viewport.width, scrollPane.viewport.height)
     }
 
     private fun setSidebarVisibility(visible: Boolean) {

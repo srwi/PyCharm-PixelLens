@@ -56,7 +56,7 @@ class ImageZoomModelImpl(private val imageComponent: ImageComponent) : ImageZoom
         if (zoomOptions.isSmartZooming) {
             val prefferedSize = zoomOptions.prefferedSize
             if (prefferedSize.width > image.width && prefferedSize.height > image.height) {
-                val factor = (prefferedSize.getWidth() / image.width.toDouble() + prefferedSize.getHeight() / image.height.toDouble()) / 2.0
+                val factor = (prefferedSize.width / image.width.toDouble() + prefferedSize.height / image.height.toDouble()) / 2.0
                 setZoomFactor(ceil(factor))
                 zoomLevelChanged = true
                 return
