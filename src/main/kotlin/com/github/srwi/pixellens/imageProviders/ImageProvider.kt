@@ -185,7 +185,8 @@ abstract class ImageProvider {
     }
 
     open fun shapeSupported(value: PyDebugValue): Boolean {
-        val shape = value.shape as String
+        val variableName = value.name
+        val shape = Python.evaluateExpression(value.frameAccessor, "$variableName.shape").value ?: return false
         val shapeList = convertStringToShapeList(shape)
         if (shapeList.size <= 4) return true
         for (i in 0 until (shapeList.size - 4)) {
