@@ -7,6 +7,7 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
+import kotlinx.coroutines.*
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.nio.channels.AsynchronousSocketChannel
 import java.util.concurrent.TimeUnit
@@ -30,10 +31,13 @@ class SocketDataTransmitter : DataTransmitter() {
             serverSocket = createServerSocket()
             triggerTransmission(frameAccessor, variableName, getServerSocketPort(serverSocket))
 
+            progressIndicator.text = "Waiting for connection..."
+            progressIndicator.fraction = 0.5
+
             clientChannel = waitForClientConnection(serverSocket)
 
-            progressIndicator.text = "Receiving data..."
-            progressIndicator.fraction = 0.0
+            progressIndicator.text = "Connection established"
+            progressIndicator.fraction = 1.0
 
             val totalSize = readTotalDataSize(clientChannel)
             bytes = receiveData(clientChannel, totalSize, progressIndicator)
@@ -70,6 +74,7 @@ class SocketDataTransmitter : DataTransmitter() {
             __tmp_bytes = $variableName.encode('utf-8')
             
             with __tmp_socket.socket(__tmp_socket.AF_INET, __tmp_socket.SOCK_STREAM) as __tmp_a_socket:
+                __tmp_a_socket.settimeout($TIMEOUT_IN_S)
                 __tmp_a_socket.connect(('localhost', $port))
                 __tmp_a_socket.sendall(__tmp_struct.pack('>Q', len(__tmp_bytes)))
                 __tmp_a_socket.sendall(__tmp_bytes)
@@ -77,7 +82,8 @@ class SocketDataTransmitter : DataTransmitter() {
             del __tmp_socket, __tmp_struct
             del __tmp_bytes, __tmp_a_socket
         """.trimIndent()
-        Python.executeStatement(frameAccessor, command)
+        val coroutineScope = CoroutineScope(Dispatchers.Default)
+        coroutineScope.launch { Python.executeStatement(frameAccessor, command) }
     }
 
     private fun readTotalDataSize(clientChannel: AsynchronousSocketChannel): Long {
@@ -105,6 +111,8 @@ class SocketDataTransmitter : DataTransmitter() {
             buffer.clear()
 
             totalBytesRead += bytesRead
+
+            progressIndicator.text = "Receiving data..."
             progressIndicator.fraction = totalBytesRead.toDouble() / totalSize
         }
 

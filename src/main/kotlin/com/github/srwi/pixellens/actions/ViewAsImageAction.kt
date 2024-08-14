@@ -20,7 +20,7 @@ class ViewAsImageAction : AnAction() {
         val project = e.project ?: return
         val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
 
-        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Retrieving data...", true) {
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Loading image...", true) {
             override fun run(progressIndicator: ProgressIndicator) {
                 try {
                     val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
@@ -35,8 +35,7 @@ class ViewAsImageAction : AnAction() {
                     }
                 } catch (e: InterruptedException) {
                     // Operation cancelled by user
-                }
-                catch (e: Exception) {
+                } catch (e: Exception) {
                     val formattedException = e.message + "\n" + e.stackTrace.joinToString("\n")
 
                     SwingUtilities.invokeLater {

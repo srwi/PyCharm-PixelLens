@@ -99,7 +99,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
     private var didInitialRepaint = false
     private var updateJob: Job? = null
-    private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val coroutineScope = CoroutineScope(Dispatchers.Default)
 
     private val editorMouseWheelAdapter = EditorMouseWheelAdapter()
     private val editorResizeAdapter = EditorResizeAdapter()
