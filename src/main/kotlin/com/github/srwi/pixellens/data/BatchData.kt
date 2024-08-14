@@ -11,17 +11,15 @@ import java.awt.image.BufferedImage
 import java.awt.image.DataBufferByte
 
 class BatchData (
-    data: NDArray<Any, DN>, dtype: String
+    originalData: NDArray<Any, DN>, rescaledData: NDArray<Float, DN>
 ) {
     private var originalData: NDArray<Any, D4>
     private var rescaledData: NDArray<Float, D4>
     private var unsqueezedLastDim: Boolean = false
 
     init {
-        val reshaped = reshapeData(data)
-
-        originalData = reshaped
-        rescaledData = adjustValueRange(reshaped, dtype)
+        this.originalData = expandDimensions(originalData) as NDArray<Any, D4>
+        this.rescaledData = expandDimensions(rescaledData) as NDArray<Float, D4>
     }
 
     var channelsFirst: Boolean = false
@@ -55,18 +53,18 @@ class BatchData (
 
     val channels: Int get() = rescaledData.shape[3]
 
-    private fun reshapeData(array: NDArray<Any, DN>): NDArray<Any, D4> {
+    private fun expandDimensions(array: NDArray<*, DN>): NDArray<*, D4> {
         when (array.shape.size) {
             1, 2 -> {
                 // Create width or channel dimension
                 val unsqueezed = array.unsqueeze(array.shape.size)
                 unsqueezedLastDim = true
-                return reshapeData(unsqueezed)
+                return expandDimensions(unsqueezed)
             }
             3 -> {
                 // Create batch dimension
                 val unsqueezed = array.unsqueeze(0)
-                return reshapeData(unsqueezed)
+                return expandDimensions(unsqueezed)
             }
             4 -> {
                 return array as NDArray<Any, D4>
@@ -75,26 +73,12 @@ class BatchData (
                 // Remove empty first dimension
                 if (array.shape[0] == 1) {
                     val squeezed = array.squeeze(0)
-                    return reshapeData(squeezed)
+                    return expandDimensions(squeezed)
                 }
             }
         }
 
         throw Exception("Shape ${array.shape.contentToString()} not supported.")
-    }
-
-    private fun adjustValueRange(array: NDArray<Any, D4>, dataType: String): NDArray<Float, D4> {
-        val preprocessed = when (dataType) {
-            "int8" -> array.asType<Float>() + 128f
-            "uint8", "RGBA", "RGB", "L", "P" -> array.asType<Float>()
-            "uint16", "uint32", "uint64" -> array.asType<Double>() / 256.0
-            "int16", "int32", "int64", "I" -> (array.asType<Double>() / 256.0) + 128.0
-            "float16", "float32", "float64", "F" -> array.asType<Double>() * 255.0
-            "bool" -> array.asType<Float>() * 255f
-            else -> throw IllegalArgumentException("Unsupported data type: $dataType")
-        }
-
-        return preprocessed.asType<Float>().clip(0f, 255f)
     }
 
     fun supportsMultiChannelDisplay(): Boolean {
@@ -134,6 +118,9 @@ class BatchData (
         if (normalized) {
             channelData = normalizeData(channelData)
             ensureActive()
+        } else {
+            channelData = channelData.deepCopy().clip(0f, 255f)
+            ensureActive()
         }
         if (grayscaleColormap && channelData.shape[2] == 1) {
             channelData = applyColormap(channelData)
@@ -144,6 +131,7 @@ class BatchData (
     }
 
     private fun normalizeData(someData: NDArray<Float, D3>): NDArray<Float, D3> {
+        // TODO: Cache min and max values as it can be quite slow to calculate
         val min = someData.min() ?: 0f
         val max = someData.max() ?: 255f
         return (someData - min) / (max - min) * 255f

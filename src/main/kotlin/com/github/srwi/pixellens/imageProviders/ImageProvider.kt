@@ -9,9 +9,11 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.jetbrains.kotlinx.multik.api.mk
 import org.jetbrains.kotlinx.multik.api.ndarray
-import org.jetbrains.kotlinx.multik.ndarray.data.D1
-import org.jetbrains.kotlinx.multik.ndarray.data.DN
-import org.jetbrains.kotlinx.multik.ndarray.data.NDArray
+import org.jetbrains.kotlinx.multik.api.zeros
+import org.jetbrains.kotlinx.multik.ndarray.data.*
+import org.jetbrains.kotlinx.multik.ndarray.operations.div
+import org.jetbrains.kotlinx.multik.ndarray.operations.plus
+import org.jetbrains.kotlinx.multik.ndarray.operations.times
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.*
@@ -30,11 +32,11 @@ data class Batch(val name: String, val data: BatchData, val metadata: Metadata)
 abstract class ImageProvider {
 
     fun getDataByVariableName(frameAccessor: PyFrameAccessor, progressIndicator: ProgressIndicator, name: String): Batch {
-        val imageAndMetadata = getImageAndMetadata(frameAccessor, progressIndicator, name)
-        return processImageData(imageAndMetadata)
+        val imageAndMetadata = getImageAndMetadata(progressIndicator, frameAccessor, name)
+        return processImageData(progressIndicator, imageAndMetadata)
     }
 
-    private fun getImageAndMetadata(frameAccessor: PyFrameAccessor, progressIndicator: ProgressIndicator, variableName: String): ImageAndMetadata {
+    private fun getImageAndMetadata(progressIndicator: ProgressIndicator, frameAccessor: PyFrameAccessor, variableName: String): ImageAndMetadata {
         val jsonDataVariableName = prepareData(frameAccessor, variableName)
         val jsonData = SocketDataTransmitter().getJsonData(frameAccessor, progressIndicator, jsonDataVariableName)
         cleanUpData(frameAccessor, jsonDataVariableName)
@@ -56,21 +58,80 @@ abstract class ImageProvider {
         Python.executeStatement(frameAccessor, "del $variableName")
     }
 
-    private fun processImageData(imageAndMetadata: ImageAndMetadata): Batch {
+    private fun processImageData(progressIndicator: ProgressIndicator, imageAndMetadata: ImageAndMetadata): Batch {
+        progressIndicator.text = "Processing image data..."
+        progressIndicator.fraction = 0.0
+
         val metadata = imageAndMetadata.metadata
         val bytes = imageAndMetadata.bytes
-
         val shape = metadata.shape.toIntArray()
         val dtype = metadata.dtype
+        val array: NDArray<*, D1> = convertBytesToNDArray(bytes, dtype)
 
+        progressIndicator.fraction = 0.33
+
+        val reshapedArray: NDArray<Any, DN> = reshapeArray(array, shape)
+
+        progressIndicator.fraction = 0.67
+
+        val rescaledArray: NDArray<Float, DN> = rescaleValues(reshapedArray, dtype)
+
+        progressIndicator.fraction = 1.0
+
+        return Batch(metadata.name, BatchData(reshapedArray, rescaledArray), metadata)
+    }
+
+    private fun reshapeArray(
+        multikArray: NDArray<*, D1>,
+        shape: IntArray
+    ): NDArray<Any, DN> {
+        // Unfortunately multik forces us to handle common numbers of dimensions explicitly
+        @Suppress("UNCHECKED_CAST") val reshapedArray: NDArray<Any, DN> = when (shape.size) {
+            1 -> multikArray.reshape(shape[0])
+            2 -> multikArray.reshape(shape[0], shape[1])
+            3 -> multikArray.reshape(shape[0], shape[1], shape[2])
+            4 -> multikArray.reshape(shape[0], shape[1], shape[2], shape[3])
+            else -> multikArray.reshape(shape[0], shape[1], shape[2], shape[3], *shape.slice(4 until shape.size).toIntArray())
+        } as NDArray<Any, DN>
+        return reshapedArray
+    }
+
+    private fun rescaleValues(array: NDArray<Any, DN>, dataType: String): NDArray<Float, DN> {
+        val rescaled = when (dataType) {
+            "int8" -> array.asType<Float>() + 128f
+            "uint8", "RGBA", "RGB", "L", "P" -> array.asType<Float>()
+            "uint16", "uint32" -> array.asType<Float>() / 256f
+            "uint64" -> array.asType<Double>() / 256.0
+            "int16", "int32" -> (array.asType<Float>() / 256f) + 128f
+            "int64", "I" -> (array.asType<Double>() / 256.0) + 128.0
+            "float16", "float32" -> array.asType<Float>() * 255f
+            "float64", "F" -> array.asType<Double>() * 255.0
+            "bool" -> array.asType<Float>() * 255f
+            else -> throw IllegalArgumentException("Unsupported data type: $dataType")
+        }
+
+        val rescaledFloat = if (rescaled.dtype == DataType.FloatDataType) {
+            rescaled as NDArray<Float, DN>
+        } else {
+            rescaled.asType<Float>()
+        }
+
+        return rescaledFloat
+    }
+
+    private fun convertBytesToNDArray(bytes: ByteArray, dtype: String): NDArray<*, D1> {
         val imageBuffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
 
-        val multikArray: NDArray<*, D1> = when (dtype) {
+        return when (dtype) {
             "float16" -> {
-                val array = ShortArray(bytes.size / 2)
+                val size = bytes.size / 2
+                val array = ShortArray(size)
                 imageBuffer.asShortBuffer().get(array)
-                val floatArray = array.map { Float16.fromBits(it) }.toFloatArray()
-                mk.ndarray(floatArray)
+                mk.zeros<Float>(size).apply {
+                    for (i in array.indices) {
+                        this[i] = Float16.fromBits(array[i])
+                    }
+                }
             }
             "float32", "F" -> {
                 val array = FloatArray(bytes.size / 4)
@@ -105,26 +166,41 @@ abstract class ImageProvider {
             "uint8", "RGBA", "RGB", "L", "P" -> {
                 val array = ByteArray(bytes.size)
                 imageBuffer.get(array)
-                val shortArray = array.map { it.toUByte().toShort() }
-                mk.ndarray(shortArray)
+                mk.zeros<Short>(bytes.size).apply {
+                    for (i in array.indices) {
+                        this[i] = array[i].toUByte().toShort()
+                    }
+                }
             }
             "uint16" -> {
-                val array = ShortArray(bytes.size / 2)
+                val size = bytes.size / 2
+                val array = ShortArray(size)
                 imageBuffer.asShortBuffer().get(array)
-                val intArray = array.map { it.toUShort().toInt() }
-                mk.ndarray(intArray)
+                mk.zeros<Int>(size).apply {
+                    for (i in array.indices) {
+                        this[i] = array[i].toUShort().toInt()
+                    }
+                }
             }
             "uint32" -> {
-                val array = IntArray(bytes.size / 4)
+                val size = bytes.size / 4
+                val array = IntArray(size)
                 imageBuffer.asIntBuffer().get(array)
-                val longArray = array.map { it.toUInt().toLong() }
-                mk.ndarray(longArray)
+                mk.zeros<Long>(size).apply {
+                    for (i in array.indices) {
+                        this[i] = array[i].toUInt().toLong()
+                    }
+                }
             }
             "uint64" -> {
-                val array = LongArray(bytes.size / 8)
+                val size = bytes.size / 8
+                val array = LongArray(size)
                 imageBuffer.asLongBuffer().get(array)
-                val doubleArray = array.map { it.toULong().toDouble() }
-                mk.ndarray(doubleArray)
+                mk.zeros<Double>(size).apply {
+                    for (i in array.indices) {
+                        this[i] = array[i].toULong().toDouble()
+                    }
+                }
             }
             "bool" -> {
                 val array = ByteArray(bytes.size)
@@ -136,17 +212,6 @@ abstract class ImageProvider {
             }
             else -> throw IllegalArgumentException("Unsupported data type: $dtype")
         }
-
-        // Unfortunately multik forces us to handle common numbers of dimensions explicitly
-        @Suppress("UNCHECKED_CAST") val reshapedArray: NDArray<Any, DN> = when (shape.size) {
-            1 -> multikArray.reshape(shape[0])
-            2 -> multikArray.reshape(shape[0], shape[1])
-            3 -> multikArray.reshape(shape[0], shape[1], shape[2])
-            4 -> multikArray.reshape(shape[0], shape[1], shape[2], shape[3])
-            else -> multikArray.reshape(shape[0], shape[1], shape[2], shape[3], *shape.slice(4 until shape.size).toIntArray())
-        } as NDArray<Any, DN>
-
-        return Batch(metadata.name, BatchData(reshapedArray, dtype), metadata)
     }
 
     private fun convertStringToShapeList(shapeString: String): List<Int> {
