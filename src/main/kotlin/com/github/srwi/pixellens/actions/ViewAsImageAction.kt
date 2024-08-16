@@ -54,7 +54,7 @@ class ViewAsImageAction : AnAction() {
                             "PixelLens encountered an unexpected error. If possible, please report this issue on GitHub.",
                             NotificationType.ERROR
                         ).addAction(CopyAndReportExceptionAction("Copy exception", formattedException))
-                            .addAction(CopyAndReportExceptionAction("Copy and report on GitHub", formattedException, "https://www.github.com/srwi/PyCharm-PixelLens/issues")),
+                            .addAction(ReportToGithubAction("Report on GitHub", formattedException)),
                         project
                     )
                 } finally {

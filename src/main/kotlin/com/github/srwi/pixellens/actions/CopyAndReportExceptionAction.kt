@@ -1,6 +1,5 @@
 package com.github.srwi.pixellens.actions
 
-import com.intellij.ide.BrowserUtil
 import com.intellij.notification.Notification
 import com.intellij.notification.NotificationAction
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -10,7 +9,7 @@ import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
 import java.awt.datatransfer.UnsupportedFlavorException
 
-class CopyAndReportExceptionAction(text: String, private val exceptionText: String, private val reportUrl: String? = null) : NotificationAction(text) {
+class CopyAndReportExceptionAction(text: String, private val exceptionText: String) : NotificationAction(text) {
     override fun actionPerformed(e: AnActionEvent, notification: Notification) {
         val transferable = object : Transferable {
             override fun getTransferDataFlavors(): Array<DataFlavor> = arrayOf(DataFlavor.stringFlavor)
@@ -21,8 +20,6 @@ class CopyAndReportExceptionAction(text: String, private val exceptionText: Stri
             }
         }
         CopyPasteManager.getInstance().setContents(transferable)
-
-        if (reportUrl != null) BrowserUtil.open(reportUrl)
 
         notification.expire()
     }
