@@ -36,4 +36,8 @@
             <action id="ToggleChannelSidebarAction" class="com.github.srwi.pixellens.actions.ToggleChannelSidebarAction" text="Toggle Channel Sidebar" description="Toggle the channel sidebar" icon="com.github.srwi.pixellens.icons.ImageViewerIcons.Channels" />
         </group>
     </actions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup id="PixelLens" displayType="BALLOON" />
+    </extensions>
 </idea-plugin>

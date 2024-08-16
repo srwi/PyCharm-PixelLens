@@ -15,13 +15,13 @@ import java.util.concurrent.TimeUnit
 class SocketDataTransmitter : DataTransmitter() {
     companion object {
         const val BUFFER_SIZE: Int = 8192
-        const val TIMEOUT_IN_S: Long = 2
+        const val TIMEOUT_IN_S: Long = 10
     }
 
     override fun getJsonData(frameAccessor: PyFrameAccessor, progressIndicator: ProgressIndicator, variableName: String): String {
         var serverSocket: AsynchronousServerSocketChannel? = null
         var clientChannel: AsynchronousSocketChannel? = null
-        var thrownException: Exception? = null
+        var throwable: Throwable? = null
         var bytes: ByteArray? = null
 
         try {
@@ -41,13 +41,13 @@ class SocketDataTransmitter : DataTransmitter() {
 
             val totalSize = readTotalDataSize(clientChannel)
             bytes = receiveData(clientChannel, totalSize, progressIndicator)
-        } catch (e: Exception) {
-            thrownException = e
+        } catch (t: Throwable) {
+            throwable = t
         } finally {
             clientChannel?.close()
             serverSocket?.close()
 
-            thrownException?.let { throw it }
+            throwable?.let { throw it }
         }
 
         return String(bytes!!, Charsets.UTF_8)

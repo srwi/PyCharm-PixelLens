@@ -1,9 +1,9 @@
 package com.github.srwi.pixellens.actions
 
 import com.github.srwi.pixellens.UserSettings
-import com.github.srwi.pixellens.dialogs.ErrorMessageDialog
 import com.github.srwi.pixellens.dialogs.ImageViewer
 import com.github.srwi.pixellens.imageProviders.ImageProviderFactory
+import com.intellij.notification.*
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -35,17 +35,28 @@ class ViewAsImageAction : AnAction() {
                     }
                 } catch (e: InterruptedException) {
                     // Operation cancelled by user
-                } catch (e: Exception) {
+                } catch (e: OutOfMemoryError) {
+                    Notifications.Bus.notify(
+                        Notification(
+                            "PixelLens",
+                            "Out of memory",
+                            "The IDE ran out of memory while trying to view the image. Please try again with a smaller slice of the data.",
+                            NotificationType.ERROR
+                        ),
+                        project
+                    )
+                } catch (e: Throwable) {
                     val formattedException = e.message + "\n" + e.stackTrace.joinToString("\n")
-
-                    SwingUtilities.invokeLater {
-                        ErrorMessageDialog(
-                            project,
-                            "Error",
-                            "The selected data could not be viewed as image.",
-                            formattedException
-                        ).show()
-                    }
+                    Notifications.Bus.notify(
+                        Notification(
+                            "PixelLens",
+                            "Unexpected error",
+                            "PixelLens encountered an unexpected error. If possible, please report this issue on GitHub.",
+                            NotificationType.ERROR
+                        ).addAction(CopyAndReportExceptionAction("Copy exception", formattedException))
+                            .addAction(CopyAndReportExceptionAction("Copy and report on GitHub", formattedException, "https://www.github.com/srwi/PyCharm-PixelLens/issues")),
+                        project
+                    )
                 } finally {
                     progressIndicator.stop()
                 }
