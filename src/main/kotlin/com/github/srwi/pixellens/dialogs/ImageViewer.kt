@@ -58,7 +58,9 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
             field = value
             batch.data.channelsFirst = value
             sidebar.updateChannelList(batch.data.channels)
-            updateImage(applySmartZoom = true)
+            updateImage().invokeOnCompletion {
+                smartZoom()
+            }
         }
 
     var reverseChannelsEnabled: Boolean = batch.data.reversedChannels
@@ -131,10 +133,10 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
         init()
 
-        updateImage(applySmartZoom = true)
+        updateImage()
     }
 
-    private fun updateImage(applySmartZoom: Boolean = false) {
+    private fun updateImage(): Job {
         updateJob?.cancel()
         updateJob = coroutineScope.launch {
             try {
@@ -147,17 +149,31 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
                 withContext(if (didInitialUpdate) Dispatchers.Main else (Dispatchers.Main + NonCancellable)) {
                     val document: ImageDocument = imageComponent.document
                     document.value = renderedImage.image
-                    if (renderedImage.valuesClipped) notifyAboutClippedValues()
                     mainToolbar.updateActionsImmediately()
                     sidebarToolbar.updateActionsImmediately()
-                    if (applySmartZoom) smartZoom()
+
+                    if (!didInitialUpdate) {
+                        initialUpdateRoutine(renderedImage.valuesClipped)
+                        didInitialUpdate = true
+                    }
+
                     repaintImage()
-                    didInitialUpdate = true
                 }
             } catch (e: CancellationException) {
                 // Task was cancelled, do nothing
             }
         }
+        return updateJob!!
+    }
+
+    private fun initialUpdateRoutine(valuesClipped: Boolean) {
+        if (batch.data.batchSize > 1) {
+            activeSidebar = SidebarType.BatchSidebar
+        }
+        if (valuesClipped) {
+            notifyAboutClippedValues()
+        }
+        smartZoom()
     }
 
     private fun repaintImage() {
@@ -179,7 +195,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         normalizeActionComponent?.let {
             GotItTooltip("normalizeTooltip", "Some values exceed the displayable range. Please consider enabling normalization.", this)
                 .withTimeout(5000)
-                .withShowCount(Int.MAX_VALUE)
+                .withShowCount(Int.MAX_VALUE)  // Show each time
                 .show(it, GotItTooltip.BOTTOM_MIDDLE)
         }
     }
