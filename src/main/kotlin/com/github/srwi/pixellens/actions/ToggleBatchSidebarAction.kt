@@ -2,13 +2,12 @@ package com.github.srwi.pixellens.actions
 
 import com.github.srwi.pixellens.dialogs.ImageViewer
 import com.github.srwi.pixellens.dialogs.SidebarType
-import com.github.srwi.pixellens.icons.ImageViewerIcons
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.DumbAwareToggleAction
 import org.intellij.images.editor.actionSystem.ImageEditorActionUtil
 
-internal class ToggleBatchSidebarAction : DumbAwareToggleAction("Toggle Batch Sidebar", "", ImageViewerIcons.Layers) {
+internal class ToggleBatchSidebarAction : DumbAwareToggleAction() {
     override fun isSelected(e: AnActionEvent): Boolean {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         return imageViewer?.activeSidebar == SidebarType.BatchSidebar

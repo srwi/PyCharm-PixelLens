@@ -1,20 +1,20 @@
 package com.github.srwi.pixellens.dialogs
 
 import com.github.srwi.pixellens.UserSettings
-import com.github.srwi.pixellens.actions.*
+import com.github.srwi.pixellens.actions.ToggleNormalizeAction
 import com.github.srwi.pixellens.data.Utils
-import com.github.srwi.pixellens.icons.ImageViewerIcons
 import com.github.srwi.pixellens.imageProviders.Batch
-import com.intellij.icons.AllIcons
-import com.intellij.ide.ActivityTracker
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.DataProvider
-import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.actionSystem.impl.ActionButton
+import com.intellij.openapi.actionSystem.impl.ActionToolbarImpl
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.ui.GotItTooltip
 import com.intellij.ui.JBColor
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
@@ -24,14 +24,9 @@ import com.intellij.ui.components.Magnificator
 import com.intellij.ui.components.TwoSideComponent
 import com.intellij.util.ui.JBUI
 import kotlinx.coroutines.*
-import org.intellij.images.actions.ToggleTransparencyChessboardAction
 import org.intellij.images.editor.ImageDocument
 import org.intellij.images.editor.ImageZoomModel
 import org.intellij.images.editor.actionSystem.ImageEditorActions
-import org.intellij.images.editor.actions.ActualSizeAction
-import org.intellij.images.editor.actions.ToggleGridAction
-import org.intellij.images.editor.actions.ZoomInAction
-import org.intellij.images.editor.actions.ZoomOutAction
 import org.intellij.images.options.OptionsManager
 import org.intellij.images.ui.ImageComponent
 import org.intellij.images.ui.ImageComponentDecorator
@@ -40,6 +35,7 @@ import java.awt.Component
 import java.awt.Dimension
 import java.awt.Point
 import java.awt.event.*
+import java.awt.image.BufferedImage
 import javax.swing.*
 import javax.swing.border.Border
 import kotlin.coroutines.cancellation.CancellationException
@@ -114,6 +110,9 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     private val imageComponent = ImageComponent()
     private val internalZoomModel = ImageZoomModelImpl(imageComponent)
 
+    private lateinit var mainToolbar: ActionToolbar
+    private lateinit var sidebarToolbar: ActionToolbar
+
     init {
         title = batch.name
         isModal = false
@@ -141,14 +140,16 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
             try {
                 // On the first repaint we want to ensure the smart zoom is applied.
                 // Therefore the coroutine should be non-cancellable
-                val image = withContext(if (didInitialUpdate) Dispatchers.Default else (Dispatchers.Default + NonCancellable)) {
+                val renderedImage = withContext(if (didInitialUpdate) Dispatchers.Default else (Dispatchers.Default + NonCancellable)) {
                     batch.data.getImage(selectedBatchIndex, selectedChannelIndex)
                 }
 
                 withContext(if (didInitialUpdate) Dispatchers.Main else (Dispatchers.Main + NonCancellable)) {
                     val document: ImageDocument = imageComponent.document
-                    document.value = image
-                    ActivityTracker.getInstance().inc()  // TODO: Update toolbars directly
+                    document.value = renderedImage.image
+                    if (renderedImage.valuesClipped) notifyAboutClippedValues()
+                    mainToolbar.updateActionsImmediately()
+                    sidebarToolbar.updateActionsImmediately()
                     if (applySmartZoom) smartZoom()
                     repaintImage()
                     didInitialUpdate = true
@@ -173,6 +174,16 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         sidebarPanel.repaint()
     }
 
+    private fun notifyAboutClippedValues() {
+        val normalizeActionComponent = (mainToolbar as ActionToolbarImpl).components.find { it is ActionButton && it.action is ToggleNormalizeAction } as ActionButton?
+        normalizeActionComponent?.let {
+            GotItTooltip("normalizeTooltip", "Some values exceed the displayable range. Please consider enabling normalization.", this)
+                .withTimeout(5000)
+                .withShowCount(Int.MAX_VALUE)
+                .show(it, GotItTooltip.BOTTOM_MIDDLE)
+        }
+    }
+
     override fun createCenterPanel(): JComponent {
         val contentPanel = JPanel(BorderLayout()).apply {
             border = BorderFactory.createEmptyBorder()
@@ -189,18 +200,16 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
     override fun createNorthPanel(): JComponent {
         val actionManager = ActionManager.getInstance()
-        val actionGroup = createCustomActionGroup()
-        val actionToolbar = actionManager.createActionToolbar("MainToolbar", actionGroup, true)
-        actionToolbar.apply { setReservePlaceAutoPopupIcon(false) }
 
-        val sidebarToggleGroup = DefaultActionGroup().apply {
-            add(ToggleBatchSidebarAction())
-            add(ToggleChannelSidebarAction())
-        }
-        val sidebarToggleToolbar = actionManager.createActionToolbar("SidebarToolbar", sidebarToggleGroup, true)
-        sidebarToggleToolbar.apply { setReservePlaceAutoPopupIcon(false) }
+        val actionGroup = actionManager.getAction("MainToolbarActionGroup") as ActionGroup
+        mainToolbar = actionManager.createActionToolbar("MainToolbar", actionGroup, true)
+        mainToolbar.apply { setReservePlaceAutoPopupIcon(false) }
 
-        val twoSideComponent = TwoSideComponent(actionToolbar.component, sidebarToggleToolbar.component)
+        val sidebarToggleGroup = actionManager.getAction("SidebarToolbarActionGroup") as ActionGroup
+        sidebarToolbar = actionManager.createActionToolbar("SidebarToolbar", sidebarToggleGroup, true)
+        sidebarToolbar.apply { setReservePlaceAutoPopupIcon(false) }
+
+        val twoSideComponent = TwoSideComponent(mainToolbar.component, sidebarToolbar.component)
 
         return JPanel(BorderLayout()).apply {
             add(twoSideComponent, BorderLayout.CENTER)
@@ -269,74 +278,6 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         return scrollPane
     }
 
-    private fun createCustomActionGroup(): ActionGroup {
-        return DefaultActionGroup().apply {
-            add(SaveAsPngAction { imageComponent.document.value }.apply {
-                templatePresentation.icon = AllIcons.Actions.MenuSaveall
-                templatePresentation.text = "Save Image"
-                templatePresentation.description = "Save image to file"
-            })
-            add(CopyToClipboardAction { imageComponent.document.value }.apply {
-                templatePresentation.icon = AllIcons.Actions.Copy
-                templatePresentation.text = "Copy Image"
-                templatePresentation.description = "Copy image to clipboard"
-            })
-            addSeparator()
-            add(ToggleTransparencyChessboardAction().apply {
-                templatePresentation.icon = ImageViewerIcons.Chessboard
-                templatePresentation.text = "Toggle Chessboard"
-                templatePresentation.description = "Toggle transparency chessboard"
-            })
-            add(ToggleGridAction().apply {
-                templatePresentation.icon = AllIcons.Graph.Grid
-                templatePresentation.text = "Toggle Grid"
-                templatePresentation.description = "Toggle pixel grid"
-            })
-            addSeparator()
-            add(ZoomInAction().apply {
-                templatePresentation.icon = AllIcons.General.ZoomIn
-                templatePresentation.text = "Zoom In"
-                templatePresentation.description = "Zoom in"
-            })
-            add(ZoomOutAction().apply {
-                templatePresentation.icon = AllIcons.General.ZoomOut
-                templatePresentation.text = "Zoom Out"
-                templatePresentation.description = "Zoom out"
-            })
-            add(ActualSizeAction().apply {
-                templatePresentation.icon = AllIcons.General.ActualZoom
-                templatePresentation.text = "Actual Size"
-                templatePresentation.description = "Reset zoom to actual image size"
-            })
-            add(FitZoomToWindowAction().apply {
-                templatePresentation.icon = AllIcons.General.FitContent
-                templatePresentation.text = "Fit Zoom to Window"
-                templatePresentation.description = "Fit zoom to window"
-            })
-            addSeparator()
-            add(ToggleTransposeAction().apply {
-                templatePresentation.icon = ImageViewerIcons.Transpose
-                templatePresentation.text = "Toggle Transpose (HWC → CHW)"
-                templatePresentation.description = "Treat image as CHW instead of HWC"
-            })
-            add(ToggleReverseChannelsAction().apply {
-                templatePresentation.icon = ImageViewerIcons.ReverseChannels
-                templatePresentation.text = "Toggle Reverse Channels (RGB → BGR)"
-                templatePresentation.description = "Treat image as BGR instead of RGB"
-            })
-            add(ToggleNormalizeAction().apply {
-                templatePresentation.icon = ImageViewerIcons.Normalize
-                templatePresentation.text = "Toggle Normalize"
-                templatePresentation.description = "Normalize image values"
-            })
-            add(ToggleApplyColormapAction().apply {
-                templatePresentation.icon = ImageViewerIcons.Colormap
-                templatePresentation.text = "Toggle Colormap (Viridis)"
-                templatePresentation.description = "Apply Viridis colormap to grayscale image"
-            })
-        }
-    }
-
     private inner class ImageContainerPane(private val imageComponent: ImageComponent) : JBLayeredPane() {
         init {
             add(imageComponent)
@@ -396,7 +337,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     private inner class EditorActionPopupAdapter : PopupHandler() {
         override fun invokePopup(comp: Component, x: Int, y: Int) {
             val actionManager = ActionManager.getInstance()
-            val actionGroup = createCustomActionGroup()
+            val actionGroup = actionManager.getAction("MainToolbarActionGroup") as ActionGroup
             val menu = actionManager.createActionPopupMenu(ImageEditorActions.ACTION_PLACE, actionGroup)
             val popupMenu = menu.component
             popupMenu.show(comp, x, y)
@@ -421,6 +362,10 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         override fun mouseExited(e: MouseEvent) {
             coordinateValueLabel.text = null
         }
+    }
+
+    fun getDisplayedImage(): BufferedImage {
+        return imageComponent.document.value
     }
 
     override fun getData(dataId: String): Any? {

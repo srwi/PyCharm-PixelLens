@@ -8,11 +8,32 @@
     <depends>com.intellij.modules.python</depends>
     <depends>com.intellij.platform.images</depends>
 
-    <resource-bundle>messages.MyBundle</resource-bundle>
-
     <actions>
         <action id="ViewImageAction" class="com.github.srwi.pixellens.actions.ViewAsImageAction" text="View as Image">
             <add-to-group group-id="XDebugger.ValueGroup" anchor="before" relative-to-action="PyDebugger.ViewArray"/>
         </action>
+
+        <group id="MainToolbarActionGroup">
+            <action id="SaveAsPngAction" class="com.github.srwi.pixellens.actions.SaveAsPngAction" text="Save Image" description="Save image to file" icon="AllIcons.Actions.MenuSaveall" />
+            <action id="CopyToClipboardAction" class="com.github.srwi.pixellens.actions.CopyToClipboardAction" text="Copy Image" description="Copy image to clipboard" icon="AllIcons.Actions.Copy" />
+            <separator />
+            <action id="ToggleTransparencyChessboardAction" class="org.intellij.images.actions.ToggleTransparencyChessboardAction" text="Toggle Chessboard" description="Toggle transparency chessboard" icon="com.github.srwi.pixellens.icons.ImageViewerIcons.Chessboard" />
+            <action id="ToggleGridAction" class="org.intellij.images.editor.actions.ToggleGridAction" text="Toggle Grid" description="Toggle pixel grid" icon="AllIcons.Graph.Grid" />
+            <separator />
+            <action id="ZoomInAction" class="org.intellij.images.editor.actions.ZoomInAction" text="Zoom In" description="Zoom in" icon="AllIcons.General.ZoomIn" />
+            <action id="ZoomOutAction" class="org.intellij.images.editor.actions.ZoomOutAction" text="Zoom Out" description="Zoom out" icon="AllIcons.General.ZoomOut" />
+            <action id="ActualSizeAction" class="org.intellij.images.editor.actions.ActualSizeAction" text="Actual Size" description="Reset zoom to actual image size" icon="AllIcons.General.ActualZoom" />
+            <action id="FitZoomToWindowAction" class="com.github.srwi.pixellens.actions.FitZoomToWindowAction" text="Fit Zoom to Window" description="Fit zoom to window" icon="AllIcons.General.FitContent" />
+            <separator />
+            <action id="ToggleTransposeAction" class="com.github.srwi.pixellens.actions.ToggleTransposeAction" text="Toggle Transpose (HWC → CHW)" description="Treat image as CHW instead of HWC" icon="com.github.srwi.pixellens.icons.ImageViewerIcons.Transpose" />
+            <action id="ToggleReverseChannelsAction" class="com.github.srwi.pixellens.actions.ToggleReverseChannelsAction" text="Toggle Reverse Channels (RGB → BGR)" description="Treat image as BGR instead of RGB" icon="com.github.srwi.pixellens.icons.ImageViewerIcons.ReverseChannels" />
+            <action id="ToggleNormalizeAction" class="com.github.srwi.pixellens.actions.ToggleNormalizeAction" text="Toggle Normalize" description="Normalize image values" icon="com.github.srwi.pixellens.icons.ImageViewerIcons.Normalize" />
+            <action id="ToggleApplyColormapAction" class="com.github.srwi.pixellens.actions.ToggleApplyColormapAction" text="Toggle Colormap (Viridis)" description="Apply Viridis colormap to grayscale image" icon="com.github.srwi.pixellens.icons.ImageViewerIcons.Colormap" />
+        </group>
+
+        <group id="SidebarToolbarActionGroup">
+            <action id="ToggleBatchSidebarAction" class="com.github.srwi.pixellens.actions.ToggleBatchSidebarAction" text="Toggle Layer Sidebar" description="Toggle the layer sidebar" icon="com.github.srwi.pixellens.icons.ImageViewerIcons.Layers" />
+            <action id="ToggleChannelSidebarAction" class="com.github.srwi.pixellens.actions.ToggleChannelSidebarAction" text="Toggle Channel Sidebar" description="Toggle the channel sidebar" icon="com.github.srwi.pixellens.icons.ImageViewerIcons.Channels" />
+        </group>
     </actions>
 </idea-plugin>

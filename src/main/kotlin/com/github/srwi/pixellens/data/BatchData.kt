@@ -10,6 +10,12 @@ import org.jetbrains.kotlinx.multik.ndarray.operations.*
 import java.awt.image.BufferedImage
 import java.awt.image.DataBufferByte
 
+
+class RenderedImage(
+    val image: BufferedImage,
+    val valuesClipped: Boolean,
+)
+
 class BatchData (
     originalData: NDArray<Any, DN>, rescaledData: NDArray<Float, DN>
 ) {
@@ -102,7 +108,7 @@ class BatchData (
         }
     }
 
-    suspend fun getImage(batchIndex: Int = 0, channel: Int? = null): BufferedImage = withContext(Dispatchers.Default) {
+    suspend fun getImage(batchIndex: Int = 0, channel: Int? = null): RenderedImage = withContext(Dispatchers.Default) {
         require(batchIndex in 0 until batchSize) { "Invalid batch index: $batchIndex" }
         require(channel in 0 until channels || channel == null) { "Invalid channel index: $channel" }
 
@@ -115,11 +121,14 @@ class BatchData (
             imageData[0 until imageData.shape[0], 0 until imageData.shape[1], adjustedChannel until (adjustedChannel + 1)]
         } as NDArray<Float, D3>
 
+        var valuesClipped = false
         if (normalized) {
             channelData = normalizeData(channelData)
             ensureActive()
         } else {
-            channelData = channelData.deepCopy().clip(0f, 255f)
+            val clippedData = clipValues(channelData, 0f, 255f)
+            channelData = clippedData.first
+            valuesClipped = clippedData.second
             ensureActive()
         }
         if (grayscaleColormap && channelData.shape[2] == 1) {
@@ -127,14 +136,35 @@ class BatchData (
             ensureActive()
         }
 
-        getBufferedImage(channelData)
+        RenderedImage(getBufferedImage(channelData), valuesClipped)
     }
 
     private fun normalizeData(someData: NDArray<Float, D3>): NDArray<Float, D3> {
         // TODO: Cache min and max values as it can be quite slow to calculate
         val min = someData.min() ?: 0f
         val max = someData.max() ?: 255f
-        return (someData - min) / (max - min) * 255f
+        val scaleFactor = 255f / (max - min)
+        return (someData - min) * scaleFactor
+    }
+
+    private fun clipValues(array: NDArray<Float, D3>, min: Float, max: Float): Pair<NDArray<Float, D3>, Boolean> {
+        val clippedArray = array.deepCopy()
+        var valuesClipped = false
+        for (i in 0 until clippedArray.shape[0]) {
+            for (j in 0 until clippedArray.shape[1]) {
+                for (k in 0 until clippedArray.shape[2]) {
+                    val value = clippedArray[i, j, k]
+                    if (value < min) {
+                        clippedArray[i, j, k] = min
+                        valuesClipped = true
+                    } else if (value > max) {
+                        clippedArray[i, j, k] = max
+                        valuesClipped = true
+                    }
+                }
+            }
+        }
+        return Pair(clippedArray, valuesClipped)
     }
 
     private fun applyColormap(someData: NDArray<Float, D3>): NDArray<Float, D3> {

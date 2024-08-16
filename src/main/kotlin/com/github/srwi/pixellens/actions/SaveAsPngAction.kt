@@ -1,17 +1,19 @@
 package com.github.srwi.pixellens.actions
 
+import com.github.srwi.pixellens.dialogs.ImageViewer
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.DumbAwareAction
-import java.awt.image.BufferedImage
+import org.intellij.images.editor.actionSystem.ImageEditorActionUtil
 import java.io.File
 import javax.imageio.ImageIO
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 
-class SaveAsPngAction(private val getImage: () -> BufferedImage?) : DumbAwareAction() {
+class SaveAsPngAction : DumbAwareAction() {
     override fun actionPerformed(e: AnActionEvent) {
-        val image = getImage() ?: return
+        val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer ?: return
+        val image = imageViewer.getDisplayedImage()
         val fileChooser = JFileChooser()
         fileChooser.dialogTitle = "Save Image"
         fileChooser.fileSelectionMode = JFileChooser.FILES_ONLY
