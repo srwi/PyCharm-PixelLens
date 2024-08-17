@@ -3,7 +3,9 @@ package com.github.srwi.pixellens.actions
 import com.github.srwi.pixellens.UserSettings
 import com.github.srwi.pixellens.dialogs.ImageViewer
 import com.github.srwi.pixellens.imageProviders.ImageProviderFactory
-import com.intellij.notification.*
+import com.intellij.notification.Notification
+import com.intellij.notification.NotificationType
+import com.intellij.notification.Notifications
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -11,7 +13,6 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.xdebugger.impl.ui.tree.actions.XDebuggerTreeActionBase
-import com.jetbrains.python.debugger.PyDebugProcess
 import com.jetbrains.python.debugger.PyDebugValue
 import javax.swing.SwingUtilities
 
@@ -70,10 +71,9 @@ class ViewAsImageAction : AnAction() {
         super.update(e)
         try {
             val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
-            val processSupported = value.frameAccessor is PyDebugProcess  // Currently only regular debugging is supported
             val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
-            e.presentation.isVisible = processSupported && imageProvider.typeSupported(value)
-            e.presentation.isEnabled = processSupported && imageProvider.shapeSupported(value)
+            e.presentation.isVisible = imageProvider.typeSupported(value)
+            e.presentation.isEnabled = imageProvider.shapeSupported(value)
         } catch (_: Exception) {
             e.presentation.isVisible = false
         }

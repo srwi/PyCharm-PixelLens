@@ -3,11 +3,13 @@ package com.github.srwi.pixellens.dataTransmitters
 import com.github.srwi.pixellens.interop.Python
 import com.intellij.openapi.progress.ProgressIndicator
 import com.jetbrains.python.debugger.PyFrameAccessor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
-import kotlinx.coroutines.*
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.nio.channels.AsynchronousSocketChannel
 import java.util.concurrent.TimeUnit

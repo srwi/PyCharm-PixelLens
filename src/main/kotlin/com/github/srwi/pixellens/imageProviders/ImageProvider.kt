@@ -1,6 +1,7 @@
 package com.github.srwi.pixellens.imageProviders
 
 import com.github.srwi.pixellens.data.BatchData
+import com.github.srwi.pixellens.dataTransmitters.SocketDataTransmitter
 import com.github.srwi.pixellens.interop.Python
 import com.intellij.openapi.progress.ProgressIndicator
 import com.jetbrains.python.debugger.PyDebugValue
