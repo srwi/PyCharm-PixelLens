@@ -1,4 +1,4 @@
-package com.github.srwi.pixellens.imageProviders
+package com.github.srwi.pixellens.dataTransmitters
 
 import com.github.srwi.pixellens.interop.Python
 import com.intellij.openapi.progress.ProgressIndicator
