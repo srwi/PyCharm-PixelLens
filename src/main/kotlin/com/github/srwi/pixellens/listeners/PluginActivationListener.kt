@@ -13,10 +13,8 @@ import java.awt.Desktop
 import java.net.URI
 import java.time.LocalDateTime
 
-
 internal class ExpandedNotification(groupId: String, title: String, content: String, type: NotificationType)
     : Notification(groupId, title, content, type), NotificationFullContent
-
 
 internal class PluginActivationListener : ApplicationActivationListener {
     companion object {
@@ -57,7 +55,8 @@ internal class PluginActivationListener : ApplicationActivationListener {
             "Thank you for using PixelLens!",
             "<p style=\"padding-bottom: 10px\">It's been over a month since you began using PixelLens. If you're enjoying it, I'd be truly grateful for your support.</p>" +
                     "<p style=\"padding-bottom: 10px\">You can show your appreciation by leaving a rating on the marketplace, giving a star on GitHub, or, if you're feeling especially generous, making a donation.</p>" +
-                    "<p>Thank you!</p>",
+                    "<p style=\"padding-bottom: 10px\">Thank you!</p>" +
+                    "<p>(This message will not be shown again)</p>",
             NotificationType.INFORMATION
         )
         notification.addAction(NotificationAction.createSimple("Rate") {

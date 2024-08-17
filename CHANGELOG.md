@@ -4,7 +4,25 @@
 
 ## [Unreleased]
 
-- Added progress indicator while retrieving image data
+## [0.2.0] - 2024-08-17
+
+### Added
+
+- Added Python console support
+- Added progress indicator while loading image
+- Added a hint whenever values are outside the displayable range
+- Improved error handling and reporting actions
+
+### Fixed
+
+- Greatly improved overall performance
+- Fixed a memory leak
+
+## [0.1.2] - 2024-08-13
+
+### Added
+
+- Added support for PyCharm 2024.2
 
 ## [0.1.1] - 2024-08-05
 

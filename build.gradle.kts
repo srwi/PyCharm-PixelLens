@@ -78,7 +78,10 @@ tasks {
                 if (!containsAll(listOf(start, end))) {
                     throw GradleException("Plugin description section not found in README.md:\n$start ... $end")
                 }
-                subList(indexOf(start) + 1, indexOf(end)).joinToString("\n").let(::markdownToHTML)
+                val shortDescription = "Free PyCharm image viewer plugin for visualizing and debugging NumPy, OpenCV, PyTorch, TensorFlow, and Pillow data."
+                val longDescription = subList(indexOf(start) + 1, indexOf(end)).joinToString("\n")
+                val fullDescription = "$shortDescription\n\n --- \n\n$longDescription"
+                fullDescription.let(::markdownToHTML)
             }
         }
 

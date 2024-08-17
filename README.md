@@ -6,13 +6,13 @@
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/25039-pixellens.svg)](https://plugins.jetbrains.com/plugin/25039-pixellens)
 
 <!-- Plugin description -->
-[PixelLens](https://github.com/srwi/PyCharm-PixelLens) is a free and [fully open source](https://github.com/srwi/PyCharm-PixelLens) PyCharm plugin designed to enhance the image visualization capabilities while debugging NumPy, PyTorch, TensorFlow or PIL (Pillow) image data.
+[PixelLens](https://plugins.jetbrains.com/plugin/25039-pixellens) is a free and [fully open source](https://github.com/srwi/PyCharm-PixelLens) PyCharm plugin designed to enhance the image visualization capabilities while debugging NumPy, OpenCV, PyTorch, TensorFlow or Pillow (PIL) image data.
 
 PixelLens is capable of displaying 1D, 2D, 3D or 4D data by right clicking any supported variable in the debugger and selecting <kbd>View as Image</kbd>.
 
 ## Features
 
-- View NumPy, PyTorch, TensorFlow and PIL (Pillow) data as image
+- View NumPy, OpenCV, PyTorch, TensorFlow and Pillow (PIL) data as image
 - View entire batches (fourth dimension) or individual channels of the data
 - Apply value normalization or Viridis colormap for better visibility
 - Transpose dimensions (CHW ↔ HWC) or reverse channels (RGB ↔ BGR)
@@ -24,6 +24,8 @@ PixelLens is capable of displaying 1D, 2D, 3D or 4D data by right clicking any s
 <p>
 
 ## Installation
+
+- Get it from the [JetBrain Marketplace](https://plugins.jetbrains.com/plugin/25039-pixellens)
 
 - Using the IDE built-in plugin system:
   
