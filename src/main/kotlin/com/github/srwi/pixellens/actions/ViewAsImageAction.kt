@@ -57,8 +57,6 @@ class ViewAsImageAction : AnAction() {
                             .addAction(ReportToGithubAction("Report on GitHub", formattedException)),
                         project
                     )
-                } finally {
-                    progressIndicator.stop()
                 }
             }
         })

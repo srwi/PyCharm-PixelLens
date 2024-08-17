@@ -60,7 +60,7 @@ abstract class ImageProvider {
 
     private fun processImageData(progressIndicator: ProgressIndicator, imageAndMetadata: ImageAndMetadata): Batch {
         progressIndicator.text = "Processing image data..."
-        progressIndicator.fraction = 0.0
+        setProgressOrCancel(progressIndicator, 0.0)
 
         val metadata = imageAndMetadata.metadata
         val bytes = imageAndMetadata.bytes
@@ -68,15 +68,15 @@ abstract class ImageProvider {
         val dtype = metadata.dtype
         val array: NDArray<*, D1> = convertBytesToNDArray(bytes, dtype)
 
-        progressIndicator.fraction = 0.33
+        setProgressOrCancel(progressIndicator, 0.33)
 
         val reshapedArray: NDArray<Any, DN> = reshapeArray(array, shape)
 
-        progressIndicator.fraction = 0.67
+        setProgressOrCancel(progressIndicator, 0.67)
 
         val rescaledArray: NDArray<Float, DN> = rescaleValues(reshapedArray, dtype)
 
-        progressIndicator.fraction = 1.0
+        setProgressOrCancel(progressIndicator, 1.0)
 
         return Batch(metadata.name, BatchData(reshapedArray, rescaledArray), metadata)
     }
@@ -212,6 +212,14 @@ abstract class ImageProvider {
             }
             else -> throw IllegalArgumentException("Unsupported data type: $dtype")
         }
+    }
+
+    private fun setProgressOrCancel(progressIndicator: ProgressIndicator, fraction: Double) {
+        if (progressIndicator.isCanceled) {
+            throw InterruptedException()
+        }
+
+        progressIndicator.fraction = fraction
     }
 
     private fun convertStringToShapeList(shapeString: String): List<Int> {
