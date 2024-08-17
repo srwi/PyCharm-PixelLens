@@ -5,25 +5,22 @@ import com.jetbrains.python.debugger.PyDebugValue
 class TensorflowImageProvider : ImageProvider() {
     override fun getDataPreparationCommand(variableName: String, outputVariableName: String): String {
         return """
-            import base64 as __tmp_base64
-            import json as __tmp_json
-            import tensorflow as __tmp_tf
+            import base64
+            import json
+            import tensorflow tf
 
-            __tmp_img_array = $variableName.numpy()
-            __tmp_img_bytes = __tmp_img_array.tobytes()
-            __tmp_img_base64 = __tmp_base64.b64encode(__tmp_img_bytes).decode('utf-8')
+            img_array = $variableName.numpy()
+            img_bytes = img_array.tobytes()
+            img_b64 = base64.b64encode(img_bytes).decode('utf-8')
             $outputVariableName = {
-                'data': __tmp_img_base64,
+                'data': img_b64,
                 'metadata': {
                     'name': '$variableName',
-                    'shape': __tmp_img_array.shape,
-                    'dtype': str(__tmp_img_array.dtype)
+                    'shape': img_array.shape,
+                    'dtype': str(img_array.dtype)
                 }
             }
-            $outputVariableName = __tmp_json.dumps($outputVariableName)
-            
-            del __tmp_base64, __tmp_json, __tmp_tf
-            del __tmp_img_array, __tmp_img_bytes, __tmp_img_base64
+            $outputVariableName = json.dumps($outputVariableName)
         """.trimIndent()
     }
 

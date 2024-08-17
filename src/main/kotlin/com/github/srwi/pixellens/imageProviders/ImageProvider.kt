@@ -38,9 +38,13 @@ abstract class ImageProvider {
     }
 
     private fun getImageAndMetadata(progressIndicator: ProgressIndicator, frameAccessor: PyFrameAccessor, variableName: String): ImageAndMetadata {
-        val jsonDataVariableName = prepareData(frameAccessor, variableName)
-        val jsonData = SocketDataTransmitter().getJsonData(frameAccessor, progressIndicator, jsonDataVariableName)
-        cleanUpData(frameAccessor, jsonDataVariableName)
+        val jsonDataVariableName = "__srwi_pixellens_data"
+        val jsonData = try {
+            prepareData(frameAccessor, variableName, jsonDataVariableName)
+            SocketDataTransmitter().getJsonData(frameAccessor, progressIndicator, jsonDataVariableName)
+        } finally {
+            cleanUpData(frameAccessor, jsonDataVariableName)
+        }
 
         val imageDataWithMetadata = Json.decodeFromString<ImageBase64AndMetadata>(jsonData)
         val imageBytes = Base64.getDecoder().decode(imageDataWithMetadata.data)
@@ -48,15 +52,28 @@ abstract class ImageProvider {
         return ImageAndMetadata(imageBytes, imageDataWithMetadata.metadata)
     }
 
-    private fun prepareData(frameAccessor: PyFrameAccessor, variableName: String): String {
-        val jsonDataVariableName = "__tmp_json_data"
+    private fun prepareData(frameAccessor: PyFrameAccessor, variableName: String, jsonDataVariableName: String) {
         val command = getDataPreparationCommand(variableName, jsonDataVariableName)
-        Python.executeStatement(frameAccessor, command)
-        return jsonDataVariableName
+        val execCommand = wrapDataPreparationCommand(command, variableName, jsonDataVariableName)
+        Python.executeStatement(frameAccessor, execCommand)
     }
 
-    private fun cleanUpData(frameAccessor: PyFrameAccessor, variableName: String) {
-        Python.executeStatement(frameAccessor, "del $variableName")
+    private fun wrapDataPreparationCommand(command: String, variableName: String, jsonDataVariableName: String): String {
+        val quotedCommand = "\"\"\"" + command.trimIndent() + "\"\"\""
+        val execWrapper = """
+            __srwi_pixellens_locals = {'$variableName': $variableName}
+            try:
+                exec(%QUOTED_COMMAND%, {}, __srwi_pixellens_locals)
+                $jsonDataVariableName = __srwi_pixellens_locals['$jsonDataVariableName']
+            finally:
+                del __srwi_pixellens_locals
+        """.trimIndent()
+        return execWrapper.replace("%QUOTED_COMMAND%", quotedCommand)
+    }
+
+    private fun cleanUpData(frameAccessor: PyFrameAccessor, jsonDataVariableName: String) {
+        val statement = "if '$jsonDataVariableName' in locals(): del $jsonDataVariableName"
+        Python.executeStatement(frameAccessor, statement)
     }
 
     private fun processImageData(progressIndicator: ProgressIndicator, imageAndMetadata: ImageAndMetadata): Batch {

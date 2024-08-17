@@ -5,24 +5,20 @@ import com.jetbrains.python.debugger.PyDebugValue
 class PillowImageProvider : ImageProvider() {
     override fun getDataPreparationCommand(variableName: String, outputVariableName: String): String {
         return """
-            import base64 as __tmp_base64
-            import io as __tmp_io
-            import json as __tmp_json
+            import base64
+            import json
 
-            __tmp_img_bytes = $variableName.tobytes()
-            __tmp_img_base64 = __tmp_base64.b64encode(__tmp_img_bytes).decode('utf-8')
+            img_bytes = $variableName.tobytes()
+            img_b64 = base64.b64encode(img_bytes).decode('utf-8')
             $outputVariableName = {
-                'data': __tmp_img_base64,
+                'data': img_b64,
                 'metadata': {
                     'name': '$variableName',
                     'shape': ($variableName.size[1], $variableName.size[0], len($variableName.getbands())),
                     'dtype': $variableName.mode
                 }
             }
-            $outputVariableName = __tmp_json.dumps($outputVariableName)
-            
-            del __tmp_base64, __tmp_io, __tmp_json
-            del __tmp_img_bytes, __tmp_img_base64
+            $outputVariableName = json.dumps($outputVariableName)
         """.trimIndent()
     }
 

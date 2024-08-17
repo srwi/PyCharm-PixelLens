@@ -5,25 +5,22 @@ import com.jetbrains.python.debugger.PyDebugValue
 class NumpyImageProvider : ImageProvider() {
     override fun getDataPreparationCommand(variableName: String, outputVariableName: String): String {
         return """
-            import json as __tmp_json
-            import base64 as __tmp_base64
-            import numpy as __tmp_np
+            import json
+            import base64
+            import numpy as np
     
-            __tmp_img_bytes = __tmp_np.ascontiguousarray($variableName).tobytes()
-            __tmp_img_base64 = __tmp_base64.b64encode(__tmp_img_bytes).decode('utf-8')
+            img_bytes = np.ascontiguousarray($variableName).tobytes()
+            img_b64 = base64.b64encode(img_bytes).decode('utf-8')
             
             $outputVariableName = {
-                'data': __tmp_img_base64,
+                'data': img_b64,
                 'metadata': {
                     'name': '$variableName',
                     'shape': $variableName.shape,
                     'dtype': str($variableName.dtype)
                 }
             }
-            $outputVariableName = __tmp_json.dumps($outputVariableName)
-            
-            del __tmp_np, __tmp_json, __tmp_base64
-            del __tmp_img_bytes, __tmp_img_base64
+            $outputVariableName = json.dumps($outputVariableName)
         """.trimIndent()
     }
 
