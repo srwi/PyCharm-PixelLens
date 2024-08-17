@@ -1,6 +1,7 @@
 package com.github.srwi.pixellens
 
 import com.intellij.ide.util.PropertiesComponent
+import java.time.LocalDateTime
 
 class UserSettings {
     companion object {
@@ -23,5 +24,13 @@ class UserSettings {
         var applyColormapEnabled: Boolean
             get() = getPropertiesComponent().getBoolean("applyColormapEnabled", false)
             set(value) = getPropertiesComponent().setValue("applyColormapEnabled", value)
+
+        var firstUseDate: LocalDateTime?
+            get() = getPropertiesComponent().getValue("firstUseDate")?.let { LocalDateTime.parse(it) }
+            set(value) = getPropertiesComponent().setValue("firstUseDate", value?.toString())
+
+        var supportReminderShown: Boolean
+            get() = getPropertiesComponent().getBoolean("supportReminderShown", false)
+            set(value) = getPropertiesComponent().setValue("supportReminderShown", value)
     }
 }

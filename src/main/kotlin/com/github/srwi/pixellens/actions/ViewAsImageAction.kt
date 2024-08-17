@@ -39,7 +39,7 @@ class ViewAsImageAction : AnAction() {
                 } catch (e: OutOfMemoryError) {
                     Notifications.Bus.notify(
                         Notification(
-                            "PixelLens",
+                            "notificationGroup.error",
                             "Out of memory",
                             "The IDE ran out of memory while trying to view the image. Please try again with a smaller slice of the data.",
                             NotificationType.ERROR
@@ -50,7 +50,7 @@ class ViewAsImageAction : AnAction() {
                     val formattedException = e.message + "\n" + e.stackTrace.joinToString("\n")
                     Notifications.Bus.notify(
                         Notification(
-                            "PixelLens",
+                            "notificationGroup.error",
                             "Unexpected error",
                             "PixelLens encountered an unexpected error. If possible, please report this issue on GitHub.",
                             NotificationType.ERROR

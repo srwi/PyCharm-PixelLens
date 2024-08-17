@@ -38,6 +38,11 @@
     </actions>
 
     <extensions defaultExtensionNs="com.intellij">
-        <notificationGroup id="PixelLens" displayType="BALLOON" />
+        <notificationGroup id="notificationGroup.error" displayType="BALLOON" />
+        <notificationGroup id="notificationGroup.sticky" displayType="STICKY_BALLOON" />
     </extensions>
+
+    <applicationListeners>
+        <listener class="com.github.srwi.pixellens.listeners.PluginActivationListener" topic="com.intellij.openapi.application.ApplicationActivationListener"/>
+    </applicationListeners>
 </idea-plugin>
