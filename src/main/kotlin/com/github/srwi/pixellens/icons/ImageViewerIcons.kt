@@ -16,7 +16,7 @@ object ImageViewerIcons {
     @JvmField
     val Transpose = IconLoader.getIcon("/icons/transpose.svg", javaClass)
     @JvmField
-    val Layers = IconLoader.getIcon("/icons/layers.svg", javaClass)
+    val Samples = IconLoader.getIcon("/icons/samples.svg", javaClass)
     @JvmField
     val Channels = IconLoader.getIcon("/icons/channels.svg", javaClass)
 }

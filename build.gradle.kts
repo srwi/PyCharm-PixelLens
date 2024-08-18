@@ -80,7 +80,7 @@ tasks {
                 }
                 val shortDescription = "Free PyCharm image viewer plugin for visualizing and debugging NumPy, OpenCV, PyTorch, TensorFlow, and Pillow data."
                 val longDescription = subList(indexOf(start) + 1, indexOf(end)).joinToString("\n")
-                val fullDescription = "$shortDescription\n\n --- \n\n$longDescription"
+                val fullDescription = "$shortDescription\n\n --- \n\n# PixelLens for PyCharm\n\n$longDescription"
                 fullDescription.let(::markdownToHTML)
             }
         }

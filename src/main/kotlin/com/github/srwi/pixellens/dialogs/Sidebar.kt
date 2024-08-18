@@ -47,7 +47,7 @@ class Sidebar {
         batchList = createBatchList()
         channelList = createChannelList()
 
-        batchPanel = createSubPanel("Layer", batchList)
+        batchPanel = createSubPanel("Sample", batchList)
         channelPanel = createSubPanel("Channel", channelList)
 
         panel.border = BorderFactory.createMatteBorder(0, 1, 0, 0, JBColor.LIGHT_GRAY)

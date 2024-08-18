@@ -32,8 +32,8 @@
         </group>
 
         <group id="SidebarToolbarActionGroup">
-            <action id="ToggleBatchSidebarAction" class="com.github.srwi.pixellens.actions.ToggleBatchSidebarAction" text="Toggle Layer Sidebar" description="Toggle the layer sidebar" icon="com.github.srwi.pixellens.icons.ImageViewerIcons.Layers" />
-            <action id="ToggleChannelSidebarAction" class="com.github.srwi.pixellens.actions.ToggleChannelSidebarAction" text="Toggle Channel Sidebar" description="Toggle the channel sidebar" icon="com.github.srwi.pixellens.icons.ImageViewerIcons.Channels" />
+            <action id="ToggleBatchSidebarAction" class="com.github.srwi.pixellens.actions.ToggleBatchSidebarAction" text="Toggle Sample Sidebar" description="Toggle the sample selection sidebar" icon="com.github.srwi.pixellens.icons.ImageViewerIcons.Samples" />
+            <action id="ToggleChannelSidebarAction" class="com.github.srwi.pixellens.actions.ToggleChannelSidebarAction" text="Toggle Channel Sidebar" description="Toggle the channel selection sidebar" icon="com.github.srwi.pixellens.icons.ImageViewerIcons.Channels" />
         </group>
     </actions>
 
