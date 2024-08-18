@@ -7,7 +7,7 @@ class TensorflowImageProvider : ImageProvider() {
         return """
             import base64
             import json
-            import tensorflow tf
+            import tensorflow as tf
 
             img_array = $variableName.numpy()
             img_bytes = img_array.tobytes()
