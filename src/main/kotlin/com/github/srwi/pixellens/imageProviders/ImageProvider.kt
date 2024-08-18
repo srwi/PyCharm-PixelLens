@@ -1,7 +1,7 @@
 package com.github.srwi.pixellens.imageProviders
 
 import com.github.srwi.pixellens.data.BatchData
-import com.github.srwi.pixellens.dataTransmitters.SocketDataTransmitter
+import com.github.srwi.pixellens.dataTransmitters.DataTransmitterFactory
 import com.github.srwi.pixellens.interop.Python
 import com.intellij.openapi.progress.ProgressIndicator
 import com.jetbrains.python.debugger.PyDebugValue
@@ -41,7 +41,8 @@ abstract class ImageProvider {
         val jsonDataVariableName = "__srwi_pixellens_data"
         val jsonData = try {
             prepareData(frameAccessor, variableName, jsonDataVariableName)
-            SocketDataTransmitter().getJsonData(frameAccessor, progressIndicator, jsonDataVariableName)
+            val dataTransmitter = DataTransmitterFactory.getDataTransmitter(frameAccessor)
+            dataTransmitter.getJsonData(frameAccessor, progressIndicator, jsonDataVariableName)
         } finally {
             cleanUpData(frameAccessor, jsonDataVariableName)
         }
