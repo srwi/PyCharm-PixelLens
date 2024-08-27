@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2024-08-27
+
+### Changes
+
+- Improved support for evaluate expressions
+
+### Fixed
+
+- Fixed crash when viewing non-contiguous PyTorch tensor
+- Fixed incorrect transposition of BCHW images
+
 ## [0.2.0] - 2024-08-17
 
 ### Added
