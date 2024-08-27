@@ -3,23 +3,24 @@ package com.github.srwi.pixellens.imageProviders
 import com.jetbrains.python.debugger.PyDebugValue
 
 class PillowImageProvider : ImageProvider() {
-    override fun getDataPreparationCommand(variableName: String, outputVariableName: String): String {
+    override fun getDataPreparationFunction(functionName: String, variableName: String): String {
         return """
-            import base64
-            import json
-
-            img_bytes = $variableName.tobytes()
-            img_b64 = base64.b64encode(img_bytes).decode('utf-8')
-            $outputVariableName = {
-                'data': img_b64,
-                'metadata': {
-                    'name': '$variableName',
-                    'shape': ($variableName.size[1], $variableName.size[0], len($variableName.getbands())),
-                    'dtype': $variableName.mode
+            def $functionName(variable):
+                import base64
+                import json
+    
+                img_bytes = variable.tobytes()
+                img_b64 = base64.b64encode(img_bytes).decode('utf-8')
+                payload = {
+                    'data': img_b64,
+                    'metadata': {
+                        'name': '$variableName',
+                        'shape': (variable.size[1], variable.size[0], len(variable.getbands())),
+                        'dtype': variable.mode
+                    }
                 }
-            }
-            $outputVariableName = json.dumps($outputVariableName)
-        """.trimIndent()
+                return json.dumps(payload)
+        """
     }
 
     override fun shapeSupported(value: PyDebugValue): Boolean {

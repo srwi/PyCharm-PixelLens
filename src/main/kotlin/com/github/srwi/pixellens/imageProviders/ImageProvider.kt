@@ -32,19 +32,23 @@ data class Batch(val name: String, val data: BatchData, val metadata: Metadata)
 
 abstract class ImageProvider {
 
+    companion object {
+        const val PAYLOAD_VARIABLE_NAME = "__srwi_pixellens_data"
+        const val FUNCTION_NAME = "__srwi_pixellens_image_provider"
+    }
+
     fun getDataByVariableName(frameAccessor: PyFrameAccessor, progressIndicator: ProgressIndicator, name: String): Batch {
         val imageAndMetadata = getImageAndMetadata(progressIndicator, frameAccessor, name)
         return processImageData(progressIndicator, imageAndMetadata)
     }
 
     private fun getImageAndMetadata(progressIndicator: ProgressIndicator, frameAccessor: PyFrameAccessor, variableName: String): ImageAndMetadata {
-        val jsonDataVariableName = "__srwi_pixellens_data"
         val jsonData = try {
-            prepareData(frameAccessor, variableName, jsonDataVariableName)
+            prepareData(frameAccessor, variableName)
             val dataTransmitter = DataTransmitterFactory.getDataTransmitter(frameAccessor)
-            dataTransmitter.getJsonData(frameAccessor, progressIndicator, jsonDataVariableName)
+            dataTransmitter.getJsonData(frameAccessor, progressIndicator, PAYLOAD_VARIABLE_NAME)
         } finally {
-            cleanUpData(frameAccessor, jsonDataVariableName)
+            cleanUpData(frameAccessor)
         }
 
         val imageDataWithMetadata = Json.decodeFromString<ImageBase64AndMetadata>(jsonData)
@@ -53,27 +57,24 @@ abstract class ImageProvider {
         return ImageAndMetadata(imageBytes, imageDataWithMetadata.metadata)
     }
 
-    private fun prepareData(frameAccessor: PyFrameAccessor, variableName: String, jsonDataVariableName: String) {
-        val command = getDataPreparationCommand(variableName, jsonDataVariableName)
-        val execCommand = wrapDataPreparationCommand(command, variableName, jsonDataVariableName)
-        Python.executeStatement(frameAccessor, execCommand)
+    private fun prepareData(frameAccessor: PyFrameAccessor, variableName: String) {
+        val functionDef = getDataPreparationFunction(FUNCTION_NAME, variableName)
+        val statement = wrapDataPreparationCommand(functionDef, variableName)
+        Python.executeStatement(frameAccessor, statement)
     }
 
-    private fun wrapDataPreparationCommand(command: String, variableName: String, jsonDataVariableName: String): String {
-        val quotedCommand = "\"\"\"" + command.trimIndent() + "\"\"\""
-        val execWrapper = """
-            __srwi_pixellens_locals = {'$variableName': $variableName}
+    private fun wrapDataPreparationCommand(functionDef: String, variableName: String): String {
+        val tryBlock = """
             try:
-                exec(%QUOTED_COMMAND%, {}, __srwi_pixellens_locals)
-                $jsonDataVariableName = __srwi_pixellens_locals['$jsonDataVariableName']
+                $PAYLOAD_VARIABLE_NAME = $FUNCTION_NAME($variableName)
             finally:
-                del __srwi_pixellens_locals
-        """.trimIndent()
-        return execWrapper.replace("%QUOTED_COMMAND%", quotedCommand)
+                del $FUNCTION_NAME
+        """
+        return functionDef.trimIndent() + "\n" + tryBlock.trimIndent()
     }
 
-    private fun cleanUpData(frameAccessor: PyFrameAccessor, jsonDataVariableName: String) {
-        val statement = "if '$jsonDataVariableName' in locals(): del $jsonDataVariableName"
+    private fun cleanUpData(frameAccessor: PyFrameAccessor) {
+        val statement = "if '$PAYLOAD_VARIABLE_NAME' in locals(): del $PAYLOAD_VARIABLE_NAME"
         Python.executeStatement(frameAccessor, statement)
     }
 
@@ -280,6 +281,7 @@ abstract class ImageProvider {
         val variableName = value.name
         val shape = Python.evaluateExpression(value.frameAccessor, "$variableName.shape").value ?: return false
         val shapeList = convertStringToShapeList(shape)
+        if (shapeList.isEmpty()) return false
         if (shapeList.size <= 4) return true
         for (i in 0 until (shapeList.size - 4)) {
             // Only dimensions of size 1 can be squeezed
@@ -290,5 +292,5 @@ abstract class ImageProvider {
 
     abstract fun typeSupported(value: PyDebugValue): Boolean
 
-    abstract fun getDataPreparationCommand(variableName: String, outputVariableName: String): String
+    abstract fun getDataPreparationFunction(functionName: String, variableName: String): String
 }
