@@ -32,14 +32,14 @@ class BatchData (
         set(value) {
             if (value != field) {
                 rescaledData = if (value) {
-                    rescaledData.transpose(0, 3, 1, 2)
-                } else {
                     rescaledData.transpose(0, 2, 3, 1)
+                } else {
+                    rescaledData.transpose(0, 3, 1, 2)
                 }
                 originalData = if (value) {
-                    originalData.transpose(0, 3, 1, 2)
-                } else {
                     originalData.transpose(0, 2, 3, 1)
+                } else {
+                    originalData.transpose(0, 3, 1, 2)
                 }
                 field = value
             }
