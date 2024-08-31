@@ -2,8 +2,7 @@ package com.github.srwi.pixellens.dialogs
 
 import com.github.srwi.pixellens.UserSettings
 import com.github.srwi.pixellens.actions.ToggleNormalizeAction
-import com.github.srwi.pixellens.data.Utils
-import com.github.srwi.pixellens.imageProviders.Batch
+import com.github.srwi.pixellens.data.Batch
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
@@ -116,7 +115,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     private lateinit var sidebarToolbar: ActionToolbar
 
     init {
-        title = batch.name
+        title = batch.expression
         isModal = false
 
         val editorOptions = OptionsManager.getInstance().options.editorOptions
@@ -235,10 +234,10 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     }
 
     override fun createSouthPanel(): JComponent {
-        val shapeLabel = JLabel(batch.metadata.shape.joinToString("x")).apply {
+        val shapeLabel = JLabel(batch.shape.joinToString("x")).apply {
             border = JBUI.Borders.empty(5)
         }
-        val dtypeLabel = JLabel(batch.metadata.dtype).apply {
+        val dtypeLabel = JLabel(batch.dtype).apply {
             border = JBUI.Borders.empty(5)
         }
         val rightPanel = JPanel(BorderLayout()).apply {

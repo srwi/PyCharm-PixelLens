@@ -3,7 +3,7 @@ package com.github.srwi.pixellens.imageProviders
 import com.jetbrains.python.debugger.PyDebugValue
 
 class PytorchImageProvider : ImageProvider() {
-    override fun getDataPreparationFunction(functionName: String, variableName: String): String {
+    override fun getDataPreparationFunction(functionName: String): String {
         return """
             def $functionName(variable):
                 import base64
@@ -16,11 +16,8 @@ class PytorchImageProvider : ImageProvider() {
                 img_b64 = base64.b64encode(bytes(img_bytes)).decode('utf-8')
                 payload = {
                     'data': img_b64,
-                    'metadata': {
-                        'name': '$variableName',
-                        'shape': list(variable.shape),
-                        'dtype': str(variable.dtype)[6:]  # dtype starts with "torch."
-                    }
+                    'shape': list(variable.shape),
+                    'dtype': str(variable.dtype)[6:]  # dtype starts with "torch."
                 }
                 return json.dumps(payload)
         """

@@ -1,12 +1,13 @@
 package com.github.srwi.pixellens.imageProviders
 
+import com.github.srwi.pixellens.data.Batch
 import com.github.srwi.pixellens.data.BatchData
+import com.github.srwi.pixellens.data.BatchDataPayload
 import com.github.srwi.pixellens.dataTransmitters.DataTransmitterFactory
 import com.github.srwi.pixellens.interop.Python
 import com.intellij.openapi.progress.ProgressIndicator
 import com.jetbrains.python.debugger.PyDebugValue
 import com.jetbrains.python.debugger.PyFrameAccessor
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.jetbrains.kotlinx.multik.api.mk
 import org.jetbrains.kotlinx.multik.api.ndarray
@@ -17,18 +18,7 @@ import org.jetbrains.kotlinx.multik.ndarray.operations.plus
 import org.jetbrains.kotlinx.multik.ndarray.operations.times
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.*
 
-@Serializable
-data class ImageAndMetadata(val bytes: ByteArray, val metadata: Metadata)
-
-@Serializable
-data class ImageBase64AndMetadata(val data: String, val metadata: Metadata)
-
-@Serializable
-data class Metadata(val name: String, val shape: List<Int>, val dtype: String)
-
-data class Batch(val name: String, val data: BatchData, val metadata: Metadata)
 
 abstract class ImageProvider {
 
@@ -37,29 +27,25 @@ abstract class ImageProvider {
         const val FUNCTION_NAME = "__srwi_pixellens_image_provider"
     }
 
-    fun getDataByVariableName(frameAccessor: PyFrameAccessor, progressIndicator: ProgressIndicator, name: String): Batch {
-        val imageAndMetadata = getImageAndMetadata(progressIndicator, frameAccessor, name)
-        return processImageData(progressIndicator, imageAndMetadata)
+    fun getBatchByExpression(frameAccessor: PyFrameAccessor, progressIndicator: ProgressIndicator, expression: String): Batch {
+        val imageAndMetadata = getBatchData(progressIndicator, frameAccessor, expression)
+        return processImageData(progressIndicator, expression, imageAndMetadata)
     }
 
-    private fun getImageAndMetadata(progressIndicator: ProgressIndicator, frameAccessor: PyFrameAccessor, variableName: String): ImageAndMetadata {
+    private fun getBatchData(progressIndicator: ProgressIndicator, frameAccessor: PyFrameAccessor, expression: String): BatchDataPayload {
         val jsonData = try {
-            prepareData(frameAccessor, variableName)
+            prepareData(frameAccessor, expression)
             val dataTransmitter = DataTransmitterFactory.getDataTransmitter(frameAccessor)
             dataTransmitter.getJsonData(frameAccessor, progressIndicator, PAYLOAD_VARIABLE_NAME)
         } finally {
             cleanUpData(frameAccessor)
         }
-
-        val imageDataWithMetadata = Json.decodeFromString<ImageBase64AndMetadata>(jsonData)
-        val imageBytes = Base64.getDecoder().decode(imageDataWithMetadata.data)
-
-        return ImageAndMetadata(imageBytes, imageDataWithMetadata.metadata)
+        return Json.decodeFromString<BatchDataPayload>(jsonData)
     }
 
-    private fun prepareData(frameAccessor: PyFrameAccessor, variableName: String) {
-        val functionDef = getDataPreparationFunction(FUNCTION_NAME, variableName)
-        val statement = wrapDataPreparationCommand(functionDef, variableName)
+    private fun prepareData(frameAccessor: PyFrameAccessor, expression: String) {
+        val functionDef = getDataPreparationFunction(FUNCTION_NAME)
+        val statement = wrapDataPreparationCommand(functionDef, expression)
         Python.executeStatement(frameAccessor, statement)
     }
 
@@ -78,14 +64,13 @@ abstract class ImageProvider {
         Python.executeStatement(frameAccessor, statement)
     }
 
-    private fun processImageData(progressIndicator: ProgressIndicator, imageAndMetadata: ImageAndMetadata): Batch {
+    private fun processImageData(progressIndicator: ProgressIndicator, expression: String, imageAndMetadata: BatchDataPayload): Batch {
         progressIndicator.text = "Processing image data..."
         setProgressOrCancel(progressIndicator, 0.0)
 
-        val metadata = imageAndMetadata.metadata
-        val bytes = imageAndMetadata.bytes
-        val shape = metadata.shape.toIntArray()
-        val dtype = metadata.dtype
+        val bytes = imageAndMetadata.data
+        val shape = imageAndMetadata.shape
+        val dtype = imageAndMetadata.dtype
         val array: NDArray<*, D1> = convertBytesToNDArray(bytes, dtype)
 
         setProgressOrCancel(progressIndicator, 0.33)
@@ -98,18 +83,18 @@ abstract class ImageProvider {
 
         setProgressOrCancel(progressIndicator, 1.0)
 
-        return Batch(metadata.name, BatchData(reshapedArray, rescaledArray), metadata)
+        return Batch(expression, shape, dtype, BatchData(reshapedArray, rescaledArray))
     }
 
     private fun reshapeArray(
         multikArray: NDArray<*, D1>,
-        shape: IntArray
+        shape: List<Int>
     ): NDArray<Any, DN> {
         // Unfortunately multik forces us to handle common numbers of dimensions explicitly
         @Suppress("UNCHECKED_CAST") val reshapedArray: NDArray<Any, DN> = when (shape.size) {
             1 -> multikArray.reshape(shape[0])
-            2 -> multikArray.reshape(shape[0], shape[1])
             3 -> multikArray.reshape(shape[0], shape[1], shape[2])
+            2 -> multikArray.reshape(shape[0], shape[1])
             4 -> multikArray.reshape(shape[0], shape[1], shape[2], shape[3])
             else -> multikArray.reshape(shape[0], shape[1], shape[2], shape[3], *shape.slice(4 until shape.size).toIntArray())
         } as NDArray<Any, DN>
@@ -292,5 +277,5 @@ abstract class ImageProvider {
 
     abstract fun typeSupported(value: PyDebugValue): Boolean
 
-    abstract fun getDataPreparationFunction(functionName: String, variableName: String): String
+    abstract fun getDataPreparationFunction(functionName: String): String
 }

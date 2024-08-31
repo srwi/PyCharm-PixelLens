@@ -25,7 +25,7 @@ class ViewAsImageAction : AnAction() {
             override fun run(progressIndicator: ProgressIndicator) {
                 try {
                     val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
-                    val batch = imageProvider.getDataByVariableName(value.frameAccessor, progressIndicator, value.name)
+                    val batch = imageProvider.getBatchByExpression(value.frameAccessor, progressIndicator, value.name)
                     batch.data.normalized = UserSettings.normalizeEnabled
                     batch.data.channelsFirst = UserSettings.transposeEnabled
                     batch.data.reversedChannels = UserSettings.reverseChannelsEnabled

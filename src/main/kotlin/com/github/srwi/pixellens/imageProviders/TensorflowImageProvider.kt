@@ -3,7 +3,7 @@ package com.github.srwi.pixellens.imageProviders
 import com.jetbrains.python.debugger.PyDebugValue
 
 class TensorflowImageProvider : ImageProvider() {
-    override fun getDataPreparationFunction(functionName: String, variableName: String): String {
+    override fun getDataPreparationFunction(functionName: String): String {
         return """
             def $functionName(variable):
                 import base64
@@ -15,11 +15,8 @@ class TensorflowImageProvider : ImageProvider() {
                 img_b64 = base64.b64encode(img_bytes).decode('utf-8')
                 payload = {
                     'data': img_b64,
-                    'metadata': {
-                        'name': '$variableName',
-                        'shape': img_array.shape,
-                        'dtype': str(img_array.dtype)
-                    }
+                    'shape': img_array.shape,
+                    'dtype': str(img_array.dtype)
                 }
                 return json.dumps(payload)
         """

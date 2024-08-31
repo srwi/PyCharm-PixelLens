@@ -3,7 +3,7 @@ package com.github.srwi.pixellens.imageProviders
 import com.jetbrains.python.debugger.PyDebugValue
 
 class NumpyImageProvider : ImageProvider() {
-    override fun getDataPreparationFunction(functionName: String, variableName: String): String {
+    override fun getDataPreparationFunction(functionName: String): String {
         return """
             def $functionName(variable):
                 import json
@@ -15,11 +15,8 @@ class NumpyImageProvider : ImageProvider() {
                 
                 payload = {
                     'data': img_b64,
-                    'metadata': {
-                        'name': '$variableName',
-                        'shape': variable.shape,
-                        'dtype': str(variable.dtype)
-                    }
+                    'shape': variable.shape,
+                    'dtype': str(variable.dtype)
                 }
                 return json.dumps(payload)
         """

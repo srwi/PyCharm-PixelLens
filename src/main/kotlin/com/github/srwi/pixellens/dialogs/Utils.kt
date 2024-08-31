@@ -1,4 +1,4 @@
-package com.github.srwi.pixellens.data
+package com.github.srwi.pixellens.dialogs
 
 import org.jetbrains.kotlinx.multik.ndarray.data.DataType
 import org.jetbrains.kotlinx.multik.ndarray.data.NDArray
