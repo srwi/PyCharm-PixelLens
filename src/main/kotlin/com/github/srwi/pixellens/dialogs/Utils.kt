@@ -23,7 +23,7 @@ class Utils {
                         else -> value.toString()
                     }
                 }
-                is Float, is Double -> String.format("%.3f", value)
+                is Float, is Double -> String.format("%.2f", value)
                 else -> value.toString()
             }
         }
