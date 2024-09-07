@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2024-09-08
+
+### Fixed
+
+- Fixed a crash when attempting to view expression that contains special characters
+
 ## [0.2.1] - 2024-08-27
 
 ### Changes
