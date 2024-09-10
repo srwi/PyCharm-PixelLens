@@ -1,6 +1,8 @@
 [versions]
 # libraries
 junit = "4.13.2"
+kotlinxMultik = "0.2.3"
+kotlinxSerializationJson = "1.7.1"
 
 # plugins
 changelog = "2.2.1"
@@ -8,9 +10,12 @@ intelliJPlatform = "2.0.1"
 kotlin = "1.9.25"
 kover = "0.8.3"
 qodana = "2024.1.9"
+serialization = "2.0.10"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+kotlinxMultik = { group = "org.jetbrains.kotlinx", name = "multik-core", version.ref = "kotlinxMultik" }
+kotlinxSerializationJson = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 
 [plugins]
 changelog = { id = "org.jetbrains.changelog", version.ref = "changelog" }
@@ -18,3 +23,4 @@ intelliJPlatform = { id = "org.jetbrains.intellij.platform", version.ref = "inte
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
 qodana = { id = "org.jetbrains.qodana", version.ref = "qodana" }
+serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "serialization" }
