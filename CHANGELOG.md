@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.2.3]
+
+### Fixed
+
+- Implemented a workaround for a bug in PyCharm 2024.2.1 that affects the ability to view images when debugging via SSH
+
 ## [0.2.2] - 2024-09-08
 
 ### Fixed

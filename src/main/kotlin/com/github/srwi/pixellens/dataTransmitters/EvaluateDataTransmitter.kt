@@ -1,5 +1,6 @@
 package com.github.srwi.pixellens.dataTransmitters
 
+import com.intellij.openapi.application.ApplicationInfo
 import com.github.srwi.pixellens.interop.Python
 import com.intellij.openapi.progress.ProgressIndicator
 import com.jetbrains.python.debugger.PyFrameAccessor
@@ -9,7 +10,7 @@ import kotlin.math.min
 
 class EvaluateDataTransmitter : DataTransmitter() {
     override fun getJsonData(frameAccessor: PyFrameAccessor, progressIndicator: ProgressIndicator, variableName: String): String {
-        val chunkSize = 2_000_000
+        val chunkSize = getChunkSize()
 
         progressIndicator.text = "Receiving data..."
         progressIndicator.fraction = 0.0
@@ -33,6 +34,19 @@ class EvaluateDataTransmitter : DataTransmitter() {
         progressIndicator.fraction = 1.0
 
         return base64Data.toString()
+    }
+
+    private fun getChunkSize(): Int
+    {
+        // Dirty fix for https://youtrack.jetbrains.com/issue/PY-75568/Large-strings-truncated-when-displayed-in-debug-output-or-evaluate-windows-again
+        val appInfo = ApplicationInfo.getInstance()
+        val fullVersion = appInfo.fullVersion
+
+        return if (fullVersion == "2024.2.1") {
+            256
+        } else {
+            2_000_000
+        }
     }
 
     private fun getChunk(frameAccessor: PyFrameAccessor, variableName: String, start: Int, end: Int): String {
