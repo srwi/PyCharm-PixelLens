@@ -25,7 +25,8 @@ class ViewAsImageAction : AnAction() {
             override fun run(progressIndicator: ProgressIndicator) {
                 try {
                     val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
-                    val batch = imageProvider.getBatchByExpression(value.frameAccessor, progressIndicator, value.name)
+                    val expression = getExpression(value)
+                    val batch = imageProvider.getBatchByExpression(value.frameAccessor, progressIndicator, expression)
                     batch.data.normalized = UserSettings.normalizeEnabled
                     batch.data.channelsFirst = UserSettings.transposeEnabled
                     batch.data.reversedChannels = UserSettings.reverseChannelsEnabled
@@ -77,5 +78,12 @@ class ViewAsImageAction : AnAction() {
         } catch (_: Exception) {
             e.presentation.isVisible = false
         }
+    }
+
+    private fun getExpression(value: PyDebugValue): String {
+        // Usually we would use 'evaluationExpression' to get the full path of the variable.
+        // Inside the evaluate expression window however the result will be assigned to a temporary
+        // variable and 'name' will be the full evaluation expression instead.
+        return if (value.parent == null) value.name else value.evaluationExpression
     }
 }
