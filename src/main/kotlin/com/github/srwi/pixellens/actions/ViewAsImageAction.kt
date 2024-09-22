@@ -71,12 +71,12 @@ class ViewAsImageAction : AnAction() {
     override fun update(e: AnActionEvent) {
         super.update(e)
         try {
-            val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
+            val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue
             val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
             e.presentation.isVisible = imageProvider.typeSupported(value)
             e.presentation.isEnabled = imageProvider.shapeSupported(value)
         } catch (_: Exception) {
-            e.presentation.isVisible = false
+            e.presentation.isEnabledAndVisible = false
         }
     }
 
