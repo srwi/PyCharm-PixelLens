@@ -39,10 +39,11 @@ class EvaluateDataTransmitter : DataTransmitter() {
     private fun getChunkSize(): Int
     {
         // Dirty fix for https://youtrack.jetbrains.com/issue/PY-75568/Large-strings-truncated-when-displayed-in-debug-output-or-evaluate-windows-again
+        // TODO: Once the bug is fixed, this workaround should be limited to the affected versions
         val appInfo = ApplicationInfo.getInstance()
         val fullVersion = appInfo.fullVersion
 
-        return if (fullVersion == "2024.2.1") {
+        return if (fullVersion == "2024.2.1" || fullVersion == "2024.2.2") {
             256
         } else {
             2_000_000
