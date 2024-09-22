@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.2.4]
+
+### Fixed
+
+- Fixed viewing of images nested in other types (e.g. inside classes or lists)
+
 ## [0.2.3]
 
 ### Fixed
