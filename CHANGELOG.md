@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.3.0]
+
+### Added
+
+- Added support for JAX
+- Added the ability to middle-click a variable in the debugger to view as image
+
 ## [0.2.4]
 
 ### Fixed
@@ -16,13 +23,13 @@
 
 - Implemented a workaround for a bug in PyCharm 2024.2.1 that affects the ability to view images when debugging via SSH
 
-## [0.2.2] - 2024-09-08
+## [0.2.2]
 
 ### Fixed
 
 - Fixed a crash when attempting to view expression that contains special characters
 
-## [0.2.1] - 2024-08-27
+## [0.2.1]
 
 ### Changes
 
@@ -33,7 +40,7 @@
 - Fixed crash when viewing non-contiguous PyTorch tensor
 - Fixed incorrect transposition of BCHW images
 
-## [0.2.0] - 2024-08-17
+## [0.2.0]
 
 ### Added
 
@@ -47,19 +54,19 @@
 - Greatly improved overall performance
 - Fixed a memory leak
 
-## [0.1.2] - 2024-08-13
+## [0.1.2]
 
 ### Added
 
 - Added support for PyCharm 2024.2
 
-## [0.1.1] - 2024-08-05
+## [0.1.1]
 
 ### Added
 
 - Added support for some missing PIL types
 
-## [0.1.0] - 2024-08-04
+## [0.1.0]
 
 ### Added
 

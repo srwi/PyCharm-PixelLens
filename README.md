@@ -12,7 +12,7 @@ PixelLens is capable of displaying 1D, 2D, 3D or 4D data by right clicking any s
 
 ## Features
 
-- View NumPy, OpenCV, PyTorch, TensorFlow and Pillow (PIL) data as image
+- View NumPy, OpenCV, PyTorch, TensorFlow, JAX and Pillow (PIL) data as image
 - View entire batches (fourth dimension) or individual channels of the data
 - Apply value normalization or Viridis colormap for better visibility
 - Transpose dimensions (CHW ↔ HWC) or reverse channels (RGB ↔ BGR)
