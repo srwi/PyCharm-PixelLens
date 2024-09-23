@@ -8,6 +8,7 @@ class ImageProviderFactory {
                 typeQualifier.startsWith("PIL") -> PillowImageProvider()
                 typeQualifier.startsWith("torch") -> PytorchImageProvider()
                 typeQualifier.startsWith("tensorflow") -> TensorflowImageProvider()
+                typeQualifier.startsWith("jaxlib") -> JaxImageProvider()
                 else -> throw IllegalArgumentException("Unsupported type qualifier: $typeQualifier")
             }
         }
