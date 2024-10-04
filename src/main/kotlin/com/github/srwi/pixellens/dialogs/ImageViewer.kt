@@ -3,6 +3,9 @@ package com.github.srwi.pixellens.dialogs
 import com.github.srwi.pixellens.UserSettings
 import com.github.srwi.pixellens.actions.ToggleNormalizeAction
 import com.github.srwi.pixellens.data.Batch
+import com.github.srwi.pixellens.data.BatchChangeObserver
+import com.github.srwi.pixellens.data.BatchData
+import com.github.srwi.pixellens.data.DebugImageValue
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
@@ -22,6 +25,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.Magnificator
 import com.intellij.ui.components.TwoSideComponent
 import com.intellij.util.ui.JBUI
+import com.jetbrains.python.debugger.PyDebugValue
 import kotlinx.coroutines.*
 import org.intellij.images.editor.ImageDocument
 import org.intellij.images.editor.ImageZoomModel
@@ -40,41 +44,43 @@ import javax.swing.border.Border
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.max
 
-class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable {
+class ImageViewer(project: Project, pyDebugValue: PyDebugValue) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable, BatchChangeObserver {
 
-    var normalizeEnabled: Boolean = batch.data.normalized
+    lateinit var batchData: BatchData
+
+    var normalizeEnabled: Boolean = UserSettings.normalizeEnabled
         set(value) {
-            if (field == value) return
+            if (field == value || !::batchData.isInitialized) return
             field = value
             UserSettings.normalizeEnabled = value
-            batch.data.normalized = value
+            batchData.normalized = value
             updateImage()
         }
 
-    var transposeEnabled: Boolean = batch.data.channelsFirst
+    var transposeEnabled: Boolean = UserSettings.transposeEnabled
         set(value) {
-            if (field == value) return
+            if (field == value || !::batchData.isInitialized) return
             field = value
-            batch.data.channelsFirst = value
-            sidebar.updateChannelList(batch.data.channels)
+            batchData.channelsFirst = value
+            sidebar.updateChannelList(batchData.channels)
             updateImage().invokeOnCompletion {
                 smartZoom()
             }
         }
 
-    var reverseChannelsEnabled: Boolean = batch.data.reversedChannels
+    var reverseChannelsEnabled: Boolean = UserSettings.reverseChannelsEnabled
         set(value) {
-            if (field == value) return
+            if (field == value || !::batchData.isInitialized) return
             field = value
-            batch.data.reversedChannels = value
+            batchData.reversedChannels = value
             updateImage()
         }
 
-    var applyColormapEnabled: Boolean = batch.data.grayscaleColormap
+    var applyColormapEnabled: Boolean = UserSettings.applyColormapEnabled
         set(value) {
-            if (field == value) return
+            if (field == value || !::batchData.isInitialized) return
             field = value
-            batch.data.grayscaleColormap = value
+            batchData.grayscaleColormap = value
             updateImage()
         }
 
@@ -89,9 +95,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
             }
         }
 
-    var selectedChannelIndex: Int? = if (batch.data.supportsMultiChannelDisplay()) null else 0
-        private set
-
+    var selectedChannelIndex: Int? = null
     private var selectedBatchIndex: Int = 0
 
     private var didInitialUpdate = false
@@ -106,6 +110,8 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
     private var scrollPane = JBScrollPane()
     private val coordinateValueLabel = JLabel()
+    private val shapeLabel = JLabel()
+    private val dtypeLabel = JLabel()
     private val sidebar = Sidebar()
     private val sidebarPanel = JPanel(BorderLayout())
     private val imageComponent = ImageComponent()
@@ -113,9 +119,11 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
     private lateinit var mainToolbar: ActionToolbar
     private lateinit var sidebarToolbar: ActionToolbar
+    private var value: DebugImageValue
+
 
     init {
-        title = batch.expression
+        title = "Loading Image..."
         isModal = false
 
         val editorOptions = OptionsManager.getInstance().options.editorOptions
@@ -132,6 +140,30 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
         init()
 
+        value = DebugImageValue(project, pyDebugValue)
+        value.addObserver(this)
+    }
+
+    override fun onBatchChanged(batch: Batch) {
+        batchData = batch.data
+
+        batchData.normalized = normalizeEnabled
+        batchData.channelsFirst = transposeEnabled
+        batchData.reversedChannels = reverseChannelsEnabled
+        batchData.grayscaleColormap = applyColormapEnabled
+
+        selectedChannelIndex = if (batchData.supportsMultiChannelDisplay()) null else 0
+        selectedBatchIndex = 0
+
+        SwingUtilities.invokeLater {
+            title = batch.expression
+            shapeLabel.text = batch.shape.joinToString("x")
+            dtypeLabel.text = batch.dtype
+
+            sidebar.setSelectedBatchIndex(selectedBatchIndex)
+            sidebar.setSelectedChannelIndex(selectedChannelIndex)
+        }
+
         updateImage()
     }
 
@@ -142,7 +174,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
                 // On the first repaint we want to ensure the smart zoom is applied.
                 // Therefore the coroutine should be non-cancellable
                 val renderedImage = withContext(if (didInitialUpdate) Dispatchers.Default else (Dispatchers.Default + NonCancellable)) {
-                    batch.data.getImage(selectedBatchIndex, selectedChannelIndex)
+                    batchData.getImage(selectedBatchIndex, selectedChannelIndex)
                 }
 
                 withContext(if (didInitialUpdate) Dispatchers.Main else (Dispatchers.Main + NonCancellable)) {
@@ -166,7 +198,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     }
 
     private fun initialUpdateRoutine(valuesClipped: Boolean) {
-        if (batch.data.batchSize > 1) {
+        if (batchData.batchSize > 1) {
             activeSidebar = SidebarType.BatchSidebar
         }
         if (valuesClipped) {
@@ -218,11 +250,11 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
         val actionGroup = actionManager.getAction("MainToolbarActionGroup") as ActionGroup
         mainToolbar = actionManager.createActionToolbar("MainToolbar", actionGroup, true)
-        mainToolbar.apply { setReservePlaceAutoPopupIcon(false) }
+        mainToolbar.apply { isReservePlaceAutoPopupIcon = false }
 
         val sidebarToggleGroup = actionManager.getAction("SidebarToolbarActionGroup") as ActionGroup
         sidebarToolbar = actionManager.createActionToolbar("SidebarToolbar", sidebarToggleGroup, true)
-        sidebarToolbar.apply { setReservePlaceAutoPopupIcon(false) }
+        sidebarToolbar.apply { isReservePlaceAutoPopupIcon = false }
 
         val twoSideComponent = TwoSideComponent(mainToolbar.component, sidebarToolbar.component)
 
@@ -234,10 +266,10 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     }
 
     override fun createSouthPanel(): JComponent {
-        val shapeLabel = JLabel(batch.shape.joinToString("x")).apply {
+        shapeLabel.apply {
             border = JBUI.Borders.empty(5)
         }
-        val dtypeLabel = JLabel(batch.dtype).apply {
+        dtypeLabel.apply {
             border = JBUI.Borders.empty(5)
         }
         val rightPanel = JPanel(BorderLayout()).apply {
@@ -260,10 +292,6 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     }
 
     private fun createRightPanel(): JComponent {
-        sidebar.updateChannelList(batch.data.channels)
-        sidebar.updateBatchList(batch.data.batchSize)
-        sidebar.setSelectedBatchIndex(selectedBatchIndex)
-        sidebar.setSelectedChannelIndex(selectedChannelIndex)
         sidebar.onBatchIndexChanged { index ->
             selectedBatchIndex = index
             updateImage()
@@ -361,12 +389,14 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
 
     private inner class EditorMouseMotionAdapter : MouseMotionAdapter() {
         override fun mouseMoved(e: MouseEvent) {
+            if (!::batchData.isInitialized) return
+
             val zoomFactor = internalZoomModel.zoomFactor
 
-            val originalX = (e.x / zoomFactor).toInt().coerceIn(0 until batch.data.width)
-            val originalY = (e.y / zoomFactor).toInt().coerceIn(0 until batch.data.height)
+            val originalX = (e.x / zoomFactor).toInt().coerceIn(0 until batchData.width)
+            val originalY = (e.y / zoomFactor).toInt().coerceIn(0 until batchData.height)
 
-            val value = batch.data.getValue(selectedBatchIndex, originalX, originalY, selectedChannelIndex)
+            val value = batchData.getValue(selectedBatchIndex, originalX, originalY, selectedChannelIndex)
             val formattedValue = Utils.formatArrayOrScalar(value)
 
             coordinateValueLabel.text = "($originalX, $originalY): $formattedValue"
@@ -425,6 +455,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         imageComponent.removeMouseListener(editorActionPopupAdapter)
         scrollPane.removeMouseWheelListener(editorMouseWheelAdapter)
         scrollPane.removeComponentListener(editorResizeAdapter)
+        value.removeObserver(this)
         super.dispose()
     }
 }

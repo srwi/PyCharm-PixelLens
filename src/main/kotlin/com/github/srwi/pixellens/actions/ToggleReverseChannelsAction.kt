@@ -35,8 +35,8 @@ internal class ToggleReverseChannelsAction : DumbAwareToggleAction() {
     override fun update(e: AnActionEvent) {
         super.update(e)
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
-        if (imageViewer != null) {
-            val numChannels = imageViewer.batch.data.channels
+        if (imageViewer != null && imageViewer.batchData != null) {
+            val numChannels = imageViewer.batchData!!.channels
             val newState = numChannels == 3 || numChannels == 4
             e.presentation.isEnabled = newState
             if (!newState) {
