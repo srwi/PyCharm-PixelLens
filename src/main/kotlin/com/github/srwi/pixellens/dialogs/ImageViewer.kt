@@ -9,7 +9,6 @@ import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.DataProvider
 import com.intellij.openapi.actionSystem.impl.ActionButton
-import com.intellij.openapi.actionSystem.impl.ActionToolbarImpl
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
@@ -190,7 +189,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     }
 
     private fun notifyAboutClippedValues() {
-        val normalizeActionComponent = (mainToolbar as ActionToolbarImpl).components.find { it is ActionButton && it.action is ToggleNormalizeAction } as ActionButton?
+        val normalizeActionComponent = mainToolbar.component.components.find { it is ActionButton && it.action is ToggleNormalizeAction } as ActionButton?
         normalizeActionComponent?.let {
             GotItTooltip("normalizeTooltip", "Some values exceed the displayable range. Please consider enabling normalization.", this)
                 .withTimeout(5000)
