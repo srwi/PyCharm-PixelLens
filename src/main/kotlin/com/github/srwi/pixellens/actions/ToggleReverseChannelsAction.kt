@@ -11,16 +11,16 @@ internal class ToggleReverseChannelsAction : DumbAwareToggleAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            val newValue = !imageViewer.reverseChannelsEnabled
+            val newValue = !imageViewer.value.reverseChannelsEnabled
             UserSettings.reverseChannelsEnabled = newValue
-            imageViewer.reverseChannelsEnabled = newValue
+            imageViewer.value.reverseChannelsEnabled = newValue
         }
     }
 
     override fun isSelected(e: AnActionEvent): Boolean {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            return imageViewer.reverseChannelsEnabled
+            return imageViewer.value.reverseChannelsEnabled
         }
         return false
     }
@@ -28,15 +28,15 @@ internal class ToggleReverseChannelsAction : DumbAwareToggleAction() {
     override fun setSelected(e: AnActionEvent, state: Boolean) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            imageViewer.reverseChannelsEnabled = state
+            imageViewer.value.reverseChannelsEnabled = state
         }
     }
 
     override fun update(e: AnActionEvent) {
         super.update(e)
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
-        if (imageViewer != null && imageViewer.batchData != null) {
-            val numChannels = imageViewer.batchData!!.channels
+        if (imageViewer != null) {
+            val numChannels = imageViewer.value.data.channels
             val newState = numChannels == 3 || numChannels == 4
             e.presentation.isEnabled = newState
             if (!newState) {

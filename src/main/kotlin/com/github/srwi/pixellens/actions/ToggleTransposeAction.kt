@@ -11,16 +11,16 @@ internal class ToggleTransposeAction : DumbAwareToggleAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            val newValue = !imageViewer.transposeEnabled
+            val newValue = !imageViewer.value.transposeEnabled
             UserSettings.transposeEnabled = newValue
-            imageViewer.transposeEnabled = newValue
+            imageViewer.value.transposeEnabled = newValue
         }
     }
 
     override fun isSelected(e: AnActionEvent): Boolean {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            return imageViewer.transposeEnabled
+            return imageViewer.value.transposeEnabled
         }
         return false
     }
@@ -28,7 +28,7 @@ internal class ToggleTransposeAction : DumbAwareToggleAction() {
     override fun setSelected(e: AnActionEvent, state: Boolean) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            imageViewer.transposeEnabled = state
+            imageViewer.value.transposeEnabled = state
         }
     }
 

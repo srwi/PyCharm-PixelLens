@@ -28,7 +28,7 @@ internal class ToggleBatchSidebarAction : DumbAwareToggleAction() {
         super.update(e)
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            val newState = imageViewer.batchData != null && imageViewer.batchData!!.batchSize > 1
+            val newState = imageViewer.value.data != null && imageViewer.value.data.batchSize > 1
             e.presentation.isVisible = newState
             if (!newState) {
                 setSelected(e, false)

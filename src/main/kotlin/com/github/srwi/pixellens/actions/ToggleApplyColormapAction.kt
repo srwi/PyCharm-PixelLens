@@ -11,16 +11,16 @@ internal class ToggleApplyColormapAction : DumbAwareToggleAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            val newValue = !imageViewer.applyColormapEnabled
+            val newValue = !imageViewer.value.applyColormapEnabled
             UserSettings.applyColormapEnabled = newValue
-            imageViewer.applyColormapEnabled = newValue
+            imageViewer.value.applyColormapEnabled = newValue
         }
     }
 
     override fun isSelected(e: AnActionEvent): Boolean {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            return imageViewer.applyColormapEnabled
+            return imageViewer.value.applyColormapEnabled
         }
         return false
     }
@@ -28,7 +28,7 @@ internal class ToggleApplyColormapAction : DumbAwareToggleAction() {
     override fun setSelected(e: AnActionEvent, state: Boolean) {
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            imageViewer.applyColormapEnabled = state
+            imageViewer.value.applyColormapEnabled = state
         }
     }
 
@@ -36,7 +36,7 @@ internal class ToggleApplyColormapAction : DumbAwareToggleAction() {
         super.update(e)
         val imageViewer = ImageEditorActionUtil.getImageComponentDecorator(e) as? ImageViewer
         if (imageViewer != null) {
-            val newState = imageViewer.selectedChannelIndex != null || imageViewer.batchData != null && imageViewer.batchData!!.channels == 1
+            val newState = imageViewer.selectedChannelIndex != null || imageViewer.value.data != null && imageViewer.value.data.channels == 1
             e.presentation.isEnabled = newState
             if (!newState) {
                 setSelected(e, false)

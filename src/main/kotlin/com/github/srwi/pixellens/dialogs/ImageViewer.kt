@@ -1,10 +1,7 @@
 package com.github.srwi.pixellens.dialogs
 
-import com.github.srwi.pixellens.UserSettings
 import com.github.srwi.pixellens.actions.ToggleNormalizeAction
-import com.github.srwi.pixellens.data.Batch
 import com.github.srwi.pixellens.data.BatchChangeObserver
-import com.github.srwi.pixellens.data.BatchData
 import com.github.srwi.pixellens.data.DebugImageValue
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
@@ -45,45 +42,6 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.max
 
 class ImageViewer(project: Project, pyDebugValue: PyDebugValue) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable, BatchChangeObserver {
-
-    lateinit var batchData: BatchData
-
-    var normalizeEnabled: Boolean = UserSettings.normalizeEnabled
-        set(value) {
-            if (field == value || !::batchData.isInitialized) return
-            field = value
-            UserSettings.normalizeEnabled = value
-            batchData.normalized = value
-            updateImage()
-        }
-
-    var transposeEnabled: Boolean = UserSettings.transposeEnabled
-        set(value) {
-            if (field == value || !::batchData.isInitialized) return
-            field = value
-            batchData.channelsFirst = value
-            sidebar.updateChannelList(batchData.channels)
-            updateImage().invokeOnCompletion {
-                smartZoom()
-            }
-        }
-
-    var reverseChannelsEnabled: Boolean = UserSettings.reverseChannelsEnabled
-        set(value) {
-            if (field == value || !::batchData.isInitialized) return
-            field = value
-            batchData.reversedChannels = value
-            updateImage()
-        }
-
-    var applyColormapEnabled: Boolean = UserSettings.applyColormapEnabled
-        set(value) {
-            if (field == value || !::batchData.isInitialized) return
-            field = value
-            batchData.grayscaleColormap = value
-            updateImage()
-        }
-
     var activeSidebar: SidebarType? = null
         set(value) {
             field = value
@@ -110,8 +68,8 @@ class ImageViewer(project: Project, pyDebugValue: PyDebugValue) : DialogWrapper(
 
     private var scrollPane = JBScrollPane()
     private val coordinateValueLabel = JLabel()
-    private val shapeLabel = JLabel()
-    private val dtypeLabel = JLabel()
+    private val shapeLabel = JLabel(" ")
+    private val dtypeLabel = JLabel(" ")
     private val sidebar = Sidebar()
     private val sidebarPanel = JPanel(BorderLayout())
     private val imageComponent = ImageComponent()
@@ -119,8 +77,8 @@ class ImageViewer(project: Project, pyDebugValue: PyDebugValue) : DialogWrapper(
 
     private lateinit var mainToolbar: ActionToolbar
     private lateinit var sidebarToolbar: ActionToolbar
-    private var value: DebugImageValue
 
+    var value: DebugImageValue
 
     init {
         title = "Loading Image..."
@@ -144,22 +102,19 @@ class ImageViewer(project: Project, pyDebugValue: PyDebugValue) : DialogWrapper(
         value.addObserver(this)
     }
 
-    override fun onBatchChanged(batch: Batch) {
-        batchData = batch.data
+    override fun onValueChanged(debugImageValue: DebugImageValue) {
+        value = debugImageValue
 
-        batchData.normalized = normalizeEnabled
-        batchData.channelsFirst = transposeEnabled
-        batchData.reversedChannels = reverseChannelsEnabled
-        batchData.grayscaleColormap = applyColormapEnabled
-
-        selectedChannelIndex = if (batchData.supportsMultiChannelDisplay()) null else 0
+        selectedChannelIndex = if (value.data.supportsMultiChannelDisplay()) null else 0
         selectedBatchIndex = 0
 
         SwingUtilities.invokeLater {
-            title = batch.expression
-            shapeLabel.text = batch.shape.joinToString("x")
-            dtypeLabel.text = batch.dtype
+            title = value.expression
+            shapeLabel.text = value.shape.joinToString("x")
+            dtypeLabel.text = value.dtype
 
+            sidebar.updateChannelList(value.data.channels)
+            sidebar.updateBatchList(value.data.batchSize)
             sidebar.setSelectedBatchIndex(selectedBatchIndex)
             sidebar.setSelectedChannelIndex(selectedChannelIndex)
         }
@@ -174,14 +129,14 @@ class ImageViewer(project: Project, pyDebugValue: PyDebugValue) : DialogWrapper(
                 // On the first repaint we want to ensure the smart zoom is applied.
                 // Therefore the coroutine should be non-cancellable
                 val renderedImage = withContext(if (didInitialUpdate) Dispatchers.Default else (Dispatchers.Default + NonCancellable)) {
-                    batchData.getImage(selectedBatchIndex, selectedChannelIndex)
+                    value.data.getImage(selectedBatchIndex, selectedChannelIndex)
                 }
 
                 withContext(if (didInitialUpdate) Dispatchers.Main else (Dispatchers.Main + NonCancellable)) {
                     val document: ImageDocument = imageComponent.document
                     document.value = renderedImage.image
-                    mainToolbar.updateActionsImmediately()
-                    sidebarToolbar.updateActionsImmediately()
+                    mainToolbar.updateActionsAsync()
+                    sidebarToolbar.updateActionsAsync()
 
                     if (!didInitialUpdate) {
                         initialUpdateRoutine(renderedImage.valuesClipped)
@@ -190,7 +145,7 @@ class ImageViewer(project: Project, pyDebugValue: PyDebugValue) : DialogWrapper(
 
                     repaintImage()
                 }
-            } catch (e: CancellationException) {
+            } catch (_: CancellationException) {
                 // Task was cancelled, do nothing
             }
         }
@@ -198,7 +153,7 @@ class ImageViewer(project: Project, pyDebugValue: PyDebugValue) : DialogWrapper(
     }
 
     private fun initialUpdateRoutine(valuesClipped: Boolean) {
-        if (batchData.batchSize > 1) {
+        if (value.data.batchSize > 1) {
             activeSidebar = SidebarType.BatchSidebar
         }
         if (valuesClipped) {
@@ -389,14 +344,12 @@ class ImageViewer(project: Project, pyDebugValue: PyDebugValue) : DialogWrapper(
 
     private inner class EditorMouseMotionAdapter : MouseMotionAdapter() {
         override fun mouseMoved(e: MouseEvent) {
-            if (!::batchData.isInitialized) return
-
             val zoomFactor = internalZoomModel.zoomFactor
 
-            val originalX = (e.x / zoomFactor).toInt().coerceIn(0 until batchData.width)
-            val originalY = (e.y / zoomFactor).toInt().coerceIn(0 until batchData.height)
+            val originalX = (e.x / zoomFactor).toInt().coerceIn(0 until value.data.width)
+            val originalY = (e.y / zoomFactor).toInt().coerceIn(0 until value.data.height)
 
-            val value = batchData.getValue(selectedBatchIndex, originalX, originalY, selectedChannelIndex)
+            val value = value.data.getValue(selectedBatchIndex, originalX, originalY, selectedChannelIndex)
             val formattedValue = Utils.formatArrayOrScalar(value)
 
             coordinateValueLabel.text = "($originalX, $originalY): $formattedValue"
