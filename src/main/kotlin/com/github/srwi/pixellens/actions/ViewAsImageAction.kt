@@ -48,7 +48,7 @@ class ViewAsImageAction : AnAction() {
                         project
                     )
                 } catch (e: Throwable) {
-                    val formattedException = e.message + "\n" + e.stackTrace.joinToString("\n")
+                    val formattedException = e.toString() + "\n" + e.stackTrace.joinToString("\n")
                     Notifications.Bus.notify(
                         Notification(
                             "notificationGroup.error",
