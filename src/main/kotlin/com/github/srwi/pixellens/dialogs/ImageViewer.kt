@@ -330,11 +330,28 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
             val editorOptions = options.editorOptions
             val zoomOptions = editorOptions.zoomOptions
             if (zoomOptions.isWheelZooming && e.isControlDown) {
-                if (e.wheelRotation > 0) {
+                val rotation = e.wheelRotation
+                val oldZoomFactor = internalZoomModel.zoomFactor
+                val oldPosition = scrollPane.viewport.viewPosition
+                if (rotation > 0) {
                     internalZoomModel.zoomOut()
-                } else {
+                } else if (rotation < 0) {
                     internalZoomModel.zoomIn()
                 }
+
+                val view = scrollPane.viewport.view
+                scrollPane.viewport.view = null
+                scrollPane.viewport.view = view
+                if (oldZoomFactor > 0.0 && rotation != 0) {
+                    val mousePoint = e.point
+                    val zoomChange = internalZoomModel.zoomFactor / oldZoomFactor
+                    val newPosition = Point(
+                        max(0.0, (oldPosition.getX() + mousePoint.getX()) * zoomChange - mousePoint.getX()).toInt(),
+                        max(0.0, (oldPosition.getY() + mousePoint.getY()) * zoomChange - mousePoint.getY()).toInt()
+                    )
+                    scrollPane.viewport.viewPosition = newPosition
+                }
+
                 e.consume()
             }
         }
