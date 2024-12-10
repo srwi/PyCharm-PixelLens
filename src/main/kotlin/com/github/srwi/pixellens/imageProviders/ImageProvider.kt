@@ -60,7 +60,12 @@ abstract class ImageProvider {
     }
 
     private fun cleanUpData(frameAccessor: PyFrameAccessor) {
-        val statement = "if '$PAYLOAD_VARIABLE_NAME' in locals(): del $PAYLOAD_VARIABLE_NAME"
+        val statement = """
+            try:
+                del $PAYLOAD_VARIABLE_NAME
+            except NameError:
+                pass
+        """.trimIndent()
         Python.executeStatement(frameAccessor, statement)
     }
 
