@@ -41,6 +41,9 @@
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup id="notificationGroup.error" displayType="BALLOON" />
         <notificationGroup id="notificationGroup.sticky" displayType="STICKY_BALLOON" />
+        <applicationService
+                serviceImplementation="com.github.srwi.pixellens.settings.PixelLensSettingsState"/>
+        <applicationConfigurable parentId="tools" instance="com.github.srwi.pixellens.settings.PixelLensSettingsConfigurable" displayName="PixelLens"/>
     </extensions>
 
     <applicationListeners>

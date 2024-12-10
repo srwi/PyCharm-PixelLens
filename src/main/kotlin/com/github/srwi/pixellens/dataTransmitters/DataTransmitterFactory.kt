@@ -1,5 +1,6 @@
 package com.github.srwi.pixellens.dataTransmitters
 
+import com.github.srwi.pixellens.settings.PixelLensSettingsState
 import com.intellij.openapi.projectRoots.Sdk
 import com.jetbrains.python.console.PydevConsoleCommunication
 import com.jetbrains.python.debugger.PyDebugProcess
@@ -10,7 +11,8 @@ import com.jetbrains.python.sdk.PythonSdkUtil
 class DataTransmitterFactory {
     companion object {
         fun getDataTransmitter(frameAccessor: PyFrameAccessor): DataTransmitter {
-            return if (isRemoteSession(frameAccessor)) {
+            val settings = PixelLensSettingsState.instance
+            return if (settings.alwaysUseEvaluateTransmission || isRemoteSession(frameAccessor)) {
                 EvaluateDataTransmitter()
             } else {
                 SocketDataTransmitter()
