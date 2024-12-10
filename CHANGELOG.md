@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [0.3.2]
+
+### Fixed
+
+- Improved zooming behavior when zooming in with the mouse wheel
+- Added a setting to control the data transmission method when viewing images (for diagnostic purposes)
+- Improved error handling
+
 ## [0.3.1]
 
 ### Added
