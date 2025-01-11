@@ -45,18 +45,19 @@ abstract class ImageProvider {
 
     private fun prepareData(frameAccessor: PyFrameAccessor, expression: String) {
         val functionDef = getDataPreparationFunction(FUNCTION_NAME)
-        val statement = wrapDataPreparationCommand(functionDef, expression)
+        Python.executeStatement(frameAccessor, functionDef)
+
+        val statement = wrapDataPreparationCommand(expression)
         Python.executeStatement(frameAccessor, statement)
     }
 
-    private fun wrapDataPreparationCommand(functionDef: String, variableName: String): String {
-        val tryBlock = """
+    private fun wrapDataPreparationCommand(variableName: String): String {
+        return """
             try:
                 $PAYLOAD_VARIABLE_NAME = $FUNCTION_NAME($variableName)
             finally:
                 del $FUNCTION_NAME
-        """
-        return functionDef.trimIndent() + "\n" + tryBlock.trimIndent()
+        """.trimIndent()
     }
 
     private fun cleanUpData(frameAccessor: PyFrameAccessor) {

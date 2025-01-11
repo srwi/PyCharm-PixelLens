@@ -20,7 +20,7 @@ class PytorchImageProvider : ImageProvider() {
                     'dtype': str(variable.dtype)[6:]  # dtype starts with "torch."
                 }
                 return json.dumps(payload)
-        """
+        """.trimIndent()
     }
 
     override fun typeSupported(value: PyDebugValue): Boolean {

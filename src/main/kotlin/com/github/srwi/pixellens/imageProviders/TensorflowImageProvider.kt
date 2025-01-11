@@ -19,7 +19,7 @@ class TensorflowImageProvider : ImageProvider() {
                     'dtype': str(img_array.dtype)
                 }
                 return json.dumps(payload)
-        """
+        """.trimIndent()
     }
 
     override fun typeSupported(value: PyDebugValue): Boolean {

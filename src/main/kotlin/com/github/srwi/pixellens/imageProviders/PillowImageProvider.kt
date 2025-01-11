@@ -17,7 +17,7 @@ class PillowImageProvider : ImageProvider() {
                     'dtype': variable.mode
                 }
                 return json.dumps(payload)
-        """
+        """.trimIndent()
     }
 
     override fun shapeSupported(value: PyDebugValue): Boolean {
