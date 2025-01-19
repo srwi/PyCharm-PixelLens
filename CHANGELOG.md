@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.4.0]
+
+### Changes
+
+- Added an option to choose between popup or dialog for image viewing
+
 ## [0.3.2]
 
 ### Fixed
