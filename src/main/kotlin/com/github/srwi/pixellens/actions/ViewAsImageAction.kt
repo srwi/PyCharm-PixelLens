@@ -1,7 +1,7 @@
 package com.github.srwi.pixellens.actions
 
 import com.github.srwi.pixellens.UserSettings
-import com.github.srwi.pixellens.dialogs.ImageViewer
+import com.github.srwi.pixellens.dialogs.ImageViewerFactory
 import com.github.srwi.pixellens.imageProviders.ImageProviderFactory
 import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
@@ -33,7 +33,7 @@ class ViewAsImageAction : AnAction() {
                     batch.data.grayscaleColormap = UserSettings.applyColormapEnabled
 
                     SwingUtilities.invokeLater {
-                        ImageViewer(project, batch).show()
+                        ImageViewerFactory.show(project, batch)
                     }
                 } catch (e: InterruptedException) {
                     // Operation cancelled by user
