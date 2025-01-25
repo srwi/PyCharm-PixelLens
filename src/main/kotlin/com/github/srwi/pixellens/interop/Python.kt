@@ -22,6 +22,11 @@ object Python {
         }
     }
 
+    fun getInterpreterVersion(frameAccessor: PyFrameAccessor): String {
+        val version = evaluateExpression(frameAccessor, "(lambda: __import__('platform').python_version())()")
+        return version.value as String
+    }
+
     private fun executeStatementInConsole(frameAccessor: PyFrameAccessor, pythonStatement: String) {
         val consoleComm = frameAccessor as PydevConsoleCommunication
 
