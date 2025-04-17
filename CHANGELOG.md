@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.4.2]
+
+### Changes
+
+- Added support for PyCharm 2025.1
+
 ## [0.4.1]
 
 ### Changes
