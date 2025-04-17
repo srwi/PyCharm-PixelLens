@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+## [0.4.1]
+
+### Changes
+
+- Added a warning informing the user about broken compatibility with Python 3.13.0
+
+## [0.4.0]
+
+### Changes
+
+- Added an option to choose between popup or dialog for image viewing
+
 ## [0.3.2]
 
 ### Fixed

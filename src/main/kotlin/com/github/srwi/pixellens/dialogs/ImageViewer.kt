@@ -10,8 +10,6 @@ import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.DataProvider
 import com.intellij.openapi.actionSystem.impl.ActionButton
 import com.intellij.openapi.editor.colors.EditorColorsManager
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.GotItTooltip
 import com.intellij.ui.JBColor
 import com.intellij.ui.PopupHandler
@@ -35,11 +33,10 @@ import java.awt.Point
 import java.awt.event.*
 import java.awt.image.BufferedImage
 import javax.swing.*
-import javax.swing.border.Border
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.max
 
-class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), ImageComponentDecorator, DataProvider, Disposable {
+open class ImageViewer(val batch: Batch) : ImageComponentDecorator, DataProvider, Disposable {
 
     var normalizeEnabled: Boolean = batch.data.normalized
         set(value) {
@@ -114,9 +111,6 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
     private lateinit var sidebarToolbar: ActionToolbar
 
     init {
-        title = batch.expression
-        isModal = false
-
         val editorOptions = OptionsManager.getInstance().options.editorOptions
         val chessboardOptions = editorOptions.transparencyChessboardOptions
         val gridOptions = editorOptions.gridOptions
@@ -128,8 +122,6 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         imageComponent.gridLineSpan = gridOptions.lineSpan
         imageComponent.gridLineColor = gridOptions.lineColor
         imageComponent.isBorderVisible = false
-
-        init()
 
         updateImage()
     }
@@ -198,30 +190,34 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         }
     }
 
-    override fun createCenterPanel(): JComponent {
-        val contentPanel = JPanel(BorderLayout()).apply {
+    fun createContentPanel(): JComponent {
+        return JPanel().apply {
+            layout = BorderLayout()
+            add(createNorthPanel(), BorderLayout.NORTH)
+            add(createCenterPanel(), BorderLayout.CENTER)
+            add(createSouthPanel(), BorderLayout.SOUTH)
+        }
+    }
+
+    private fun createCenterPanel(): JComponent {
+        return JPanel(BorderLayout()).apply {
             border = BorderFactory.createEmptyBorder()
             add(createImagePanel(), BorderLayout.CENTER)
             add(createRightPanel(), BorderLayout.EAST)
             minimumSize = Dimension(0, 400)
         }
-        return contentPanel
     }
 
-    override fun createContentPaneBorder(): Border {
-        return JBUI.Borders.empty()
-    }
-
-    override fun createNorthPanel(): JComponent {
+    private fun createNorthPanel(): JComponent {
         val actionManager = ActionManager.getInstance()
 
         val actionGroup = actionManager.getAction("MainToolbarActionGroup") as ActionGroup
         mainToolbar = actionManager.createActionToolbar("MainToolbar", actionGroup, true)
-        mainToolbar.apply { setReservePlaceAutoPopupIcon(false) }
+        mainToolbar.apply { isReservePlaceAutoPopupIcon = false }
 
         val sidebarToggleGroup = actionManager.getAction("SidebarToolbarActionGroup") as ActionGroup
         sidebarToolbar = actionManager.createActionToolbar("SidebarToolbar", sidebarToggleGroup, true)
-        sidebarToolbar.apply { setReservePlaceAutoPopupIcon(false) }
+        sidebarToolbar.apply { isReservePlaceAutoPopupIcon = false }
 
         val twoSideComponent = TwoSideComponent(mainToolbar.component, sidebarToolbar.component)
 
@@ -232,7 +228,7 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         }
     }
 
-    override fun createSouthPanel(): JComponent {
+    private fun createSouthPanel(): JComponent {
         val shapeLabel = JLabel(batch.shape.joinToString("x")).apply {
             border = JBUI.Borders.empty(5)
         }
@@ -432,8 +428,6 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         return internalZoomModel
     }
 
-    override fun getDimensionServiceKey() = "com.github.srwi.pixellens.dialogs.ImageViewer"
-
     override fun dispose() {
         updateJob?.cancel()
         imageComponent.removeMouseMotionListener(mouseMotionAdapter)
@@ -441,6 +435,5 @@ class ImageViewer(project: Project, val batch: Batch) : DialogWrapper(project), 
         imageComponent.removeMouseListener(editorActionPopupAdapter)
         scrollPane.removeMouseWheelListener(editorMouseWheelAdapter)
         scrollPane.removeComponentListener(editorResizeAdapter)
-        super.dispose()
     }
 }

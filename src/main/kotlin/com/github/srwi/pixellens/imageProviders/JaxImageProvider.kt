@@ -19,7 +19,7 @@ class JaxImageProvider : ImageProvider() {
                     'dtype': str(variable.dtype)
                 }
                 return json.dumps(payload)
-        """
+        """.trimIndent()
     }
 
     override fun typeSupported(value: PyDebugValue): Boolean {

@@ -1,8 +1,9 @@
 package com.github.srwi.pixellens.actions
 
 import com.github.srwi.pixellens.UserSettings
-import com.github.srwi.pixellens.dialogs.ImageViewer
+import com.github.srwi.pixellens.dialogs.ImageViewerFactory
 import com.github.srwi.pixellens.imageProviders.ImageProviderFactory
+import com.github.srwi.pixellens.interop.Python
 import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
@@ -12,14 +13,20 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
+import com.intellij.openapi.project.Project
 import com.intellij.xdebugger.impl.ui.tree.actions.XDebuggerTreeActionBase
 import com.jetbrains.python.debugger.PyDebugValue
+import com.jetbrains.python.debugger.PyFrameAccessor
 import javax.swing.SwingUtilities
 
 class ViewAsImageAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
         val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
+
+        if (!checkPythonCompatibility(value.frameAccessor, project)) {
+            return
+        }
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Loading image...", true) {
             override fun run(progressIndicator: ProgressIndicator) {
@@ -33,7 +40,7 @@ class ViewAsImageAction : AnAction() {
                     batch.data.grayscaleColormap = UserSettings.applyColormapEnabled
 
                     SwingUtilities.invokeLater {
-                        ImageViewer(project, batch).show()
+                        ImageViewerFactory.show(project, batch)
                     }
                 } catch (e: InterruptedException) {
                     // Operation cancelled by user
@@ -85,5 +92,26 @@ class ViewAsImageAction : AnAction() {
         // Inside the evaluate expression window however the result will be assigned to a temporary
         // variable and 'name' will be the full evaluation expression instead.
         return if (value.parent == null) value.name else value.evaluationExpression
+    }
+
+    private fun checkPythonCompatibility(frameAccessor: PyFrameAccessor, project: Project): Boolean {
+        val pythonVersion = Python.getInterpreterVersion(frameAccessor)
+
+        // https://github.com/srwi/PyCharm-PixelLens/issues/36
+        val isCompatible = pythonVersion != "3.13.0"
+
+        if (!isCompatible) {
+            Notifications.Bus.notify(
+                Notification(
+                    "notificationGroup.error",
+                    "Incompatible python version",
+                    "You are currently using Python 3.13.0, which is affected by a known bug that prevents compatibility with PixelLens. Please update to Python 3.13.1 or later to continue using PixelLens.",
+                    NotificationType.WARNING
+                ),
+                project
+            )
+        }
+
+        return isCompatible
     }
 }
