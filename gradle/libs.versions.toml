@@ -2,14 +2,14 @@
 # libraries
 junit = "4.13.2"
 kotlinxMultik = "0.2.3"
-kotlinxSerializationJson = "1.7.3"
+kotlinxSerializationJson = "1.8.0"
 
 # plugins
 changelog = "2.2.1"
-intelliJPlatform = "2.2.0"
+intelliJPlatform = "2.3.0"
 kotlin = "2.1.0"
-kover = "0.8.3"
-qodana = "2024.2.6"
+kover = "0.9.1"
+qodana = "2024.3.4"
 serialization = "2.1.10"
 
 [libraries]
