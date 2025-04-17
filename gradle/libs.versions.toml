@@ -2,7 +2,7 @@
 # libraries
 junit = "4.13.2"
 kotlinxMultik = "0.2.3"
-kotlinxSerializationJson = "1.7.3"
+kotlinxSerializationJson = "1.8.0"
 
 # plugins
 changelog = "2.2.1"
