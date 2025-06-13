@@ -74,12 +74,17 @@ class SocketDataTransmitter : DataTransmitter() {
             import struct as __tmp_struct
             
             __tmp_bytes = $variableName.encode('utf-8')
+            __tmp_a_socket = None
             
-            with __tmp_socket.socket(__tmp_socket.AF_INET, __tmp_socket.SOCK_STREAM) as __tmp_a_socket:
-                __tmp_a_socket.settimeout($TIMEOUT_IN_S)
-                __tmp_a_socket.connect(('localhost', $port))
-                __tmp_a_socket.sendall(__tmp_struct.pack('>Q', len(__tmp_bytes)))
-                __tmp_a_socket.sendall(__tmp_bytes)
+            try:
+                with __tmp_socket.socket(__tmp_socket.AF_INET, __tmp_socket.SOCK_STREAM) as __tmp_a_socket:
+                    __tmp_a_socket.settimeout($TIMEOUT_IN_S)
+                    __tmp_a_socket.connect(('localhost', $port))
+                    __tmp_a_socket.sendall(__tmp_struct.pack('>Q', len(__tmp_bytes)))
+                    __tmp_a_socket.sendall(__tmp_bytes)
+            except ConnectionResetError:
+                # Can happen if Kotlin side closes connection before Python socket has fully finished its operations.
+                pass
                 
             del __tmp_socket, __tmp_struct
             del __tmp_bytes, __tmp_a_socket
