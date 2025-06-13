@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.4.4]
+
+### Changes
+
+- Added support for early versions of PyCharm (starting from 2021.1)
+
 ## [0.4.3]
 
 ### Changes
