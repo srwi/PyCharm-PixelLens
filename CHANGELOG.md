@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [0.4.4]
+
+### Changes
+
+- Disabled PixelLens for empty images
+- Added a warning when attempting to view variables as image in a Jupyter Notebook without debugging
+- Improved error handling
+
 ## [0.4.3]
 
 ### Changes
