@@ -273,6 +273,9 @@ abstract class ImageProvider {
         val shape = Python.evaluateExpression(value.frameAccessor, "$expression.shape").value ?: return false
         val shapeList = convertStringToShapeList(shape)
         if (shapeList.isEmpty()) return false
+
+        if (shapeList.any { it <= 0 }) return false
+        
         if (shapeList.size <= 4) return true
         for (i in 0 until (shapeList.size - 4)) {
             // Only dimensions of size 1 can be squeezed
