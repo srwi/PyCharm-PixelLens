@@ -115,7 +115,7 @@ abstract class ImageProvider {
             "uint64" -> array.asType<Double>() / 256.0
             "int16", "int32" -> (array.asType<Float>() / 256f) + 128f
             "int64", "I" -> (array.asType<Double>() / 256.0) + 128.0
-            "float16", "float32" -> array.asType<Float>() * 255f
+            "float16", "bfloat16", "float32" -> array.asType<Float>() * 255f
             "float64", "F" -> array.asType<Double>() * 255.0
             "bool" -> array.asType<Float>() * 255f
             else -> throw IllegalArgumentException("Unsupported data type: $dataType")
@@ -141,6 +141,16 @@ abstract class ImageProvider {
                 mk.zeros<Float>(size).apply {
                     for (i in array.indices) {
                         this[i] = Float16.fromBits(array[i])
+                    }
+                }
+            }
+            "bfloat16" -> {
+                val size = bytes.size / 2
+                val array = ShortArray(size)
+                imageBuffer.asShortBuffer().get(array)
+                mk.zeros<Float>(size).apply {
+                    for (i in array.indices) {
+                        this[i] = BFloat16.fromBits(array[i])
                     }
                 }
             }
@@ -264,6 +274,13 @@ abstract class ImageProvider {
             val exp = e + 112
             val sig = m shl 13
             val bits = (s shl 31) or (exp shl 23) or sig
+            return Float.fromBits(bits)
+        }
+    }
+
+    object BFloat16 {
+        fun fromBits(someBits: Short): Float {
+            val bits = (someBits.toInt() and 0xFFFF) shl 16
             return Float.fromBits(bits)
         }
     }
