@@ -139,8 +139,8 @@ open class ImageViewer(val batch: Batch) : ImageComponentDecorator, DataProvider
                 withContext(if (didInitialUpdate) Dispatchers.Main else (Dispatchers.Main + NonCancellable)) {
                     val document: ImageDocument = imageComponent.document
                     document.value = renderedImage.image
-                    mainToolbar.updateActionsImmediately()
-                    sidebarToolbar.updateActionsImmediately()
+                    mainToolbar.updateActionsAsync()
+                    sidebarToolbar.updateActionsAsync()
 
                     if (!didInitialUpdate) {
                         initialUpdateRoutine(renderedImage.valuesClipped)
@@ -149,7 +149,7 @@ open class ImageViewer(val batch: Batch) : ImageComponentDecorator, DataProvider
 
                     repaintImage()
                 }
-            } catch (e: CancellationException) {
+            } catch (@Suppress("IncorrectCancellationExceptionHandling") _: CancellationException) {
                 // Task was cancelled, do nothing
             }
         }
@@ -361,7 +361,7 @@ open class ImageViewer(val batch: Batch) : ImageComponentDecorator, DataProvider
         }
     }
 
-    private inner class EditorActionPopupAdapter : PopupHandler() {
+    private class EditorActionPopupAdapter : PopupHandler() {
         override fun invokePopup(comp: Component, x: Int, y: Int) {
             val actionManager = ActionManager.getInstance()
             val actionGroup = actionManager.getAction("MainToolbarActionGroup") as ActionGroup
