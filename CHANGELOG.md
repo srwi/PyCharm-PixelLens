@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [0.5.0]
+
+### Changes
+
+- Added support for bfloat16 data type
+- Optimized image normalization performance (especially noticeable for large images)
+- Added an icon to the context menu action
+- Improved error handling
+
 ## [0.4.4]
 
 ### Changes
