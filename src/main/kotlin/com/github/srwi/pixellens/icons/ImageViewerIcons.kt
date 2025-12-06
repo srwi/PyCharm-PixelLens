@@ -4,6 +4,8 @@ import com.intellij.openapi.util.IconLoader
 
 object ImageViewerIcons {
     @JvmField
+    val Action = IconLoader.getIcon("/icons/action.svg", javaClass)
+    @JvmField
     val Heart = IconLoader.getIcon("/icons/heart.svg", javaClass)
     @JvmField
     val Chessboard = IconLoader.getIcon("/icons/chessboard.svg", javaClass)
