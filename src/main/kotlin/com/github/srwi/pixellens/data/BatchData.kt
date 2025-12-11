@@ -140,11 +140,24 @@ class BatchData (
     }
 
     private fun normalizeData(someData: NDArray<Float, D3>): NDArray<Float, D3> {
-        // TODO: Cache min and max values as it can be quite slow to calculate
         val min = someData.min() ?: 0f
         val max = someData.max() ?: 255f
-        val scaleFactor = 255f / (max - min)
-        return (someData - min) * scaleFactor
+        val range = max - min
+        if (range == 0f) {
+            return someData
+        }
+
+        val scaleFactor = 255f / range
+        val result = mk.zeros<Float>(height, width, someData.shape[2])
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                for (c in 0 until someData.shape[2]) {
+                    result[y, x, c] = (someData[y, x, c] - min) * scaleFactor
+                }
+            }
+        }
+
+        return result
     }
 
     private fun clipValues(array: NDArray<Float, D3>, min: Float, max: Float): Pair<NDArray<Float, D3>, Boolean> {

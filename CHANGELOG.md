@@ -4,6 +4,29 @@
 
 ## [Unreleased]
 
+## [0.5.1]
+
+### Changes
+
+- Added support for PyCharm 2025.3
+
+## [0.5.0]
+
+### Changes
+
+- Added support for bfloat16 data type
+- Optimized image normalization performance (especially noticeable for large images)
+- Added an icon to the context menu action
+- Improved error handling
+
+## [0.4.4]
+
+### Changes
+
+- Disabled PixelLens for empty images
+- Added a warning when attempting to view variables as image in a Jupyter Notebook without debugging
+- Improved error handling
+
 ## [0.4.3]
 
 ### Changes

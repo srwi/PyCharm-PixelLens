@@ -9,7 +9,7 @@
     <depends>com.intellij.platform.images</depends>
 
     <actions>
-        <action id="ViewImageAction" class="com.github.srwi.pixellens.actions.ViewAsImageAction" text="View as Image">
+        <action id="ViewImageAction" class="com.github.srwi.pixellens.actions.ViewAsImageAction" icon="com.github.srwi.pixellens.icons.ImageViewerIcons.Action" text="View as Image (PixelLens)">
             <add-to-group group-id="XDebugger.ValueGroup" anchor="before" relative-to-action="PyDebugger.ViewArray"/>
             <mouse-shortcut keymap="$default" keystroke="button2"/>
         </action>

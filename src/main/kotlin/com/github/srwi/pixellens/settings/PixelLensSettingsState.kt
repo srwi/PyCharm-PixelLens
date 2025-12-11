@@ -9,6 +9,7 @@ import com.intellij.openapi.components.Storage
 class PixelLensSettingsState : PersistentStateComponent<PixelLensSettingsState> {
     var alwaysUseEvaluateTransmission: Boolean = false
     var usePopupWindow: Boolean = false
+    var verboseMode: Boolean = false
 
     override fun getState(): PixelLensSettingsState {
         return this
@@ -17,6 +18,7 @@ class PixelLensSettingsState : PersistentStateComponent<PixelLensSettingsState> 
     override fun loadState(state: PixelLensSettingsState) {
         this.alwaysUseEvaluateTransmission = state.alwaysUseEvaluateTransmission
         this.usePopupWindow = state.usePopupWindow
+        this.verboseMode = state.verboseMode
     }
 
     companion object {

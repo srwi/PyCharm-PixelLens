@@ -12,16 +12,19 @@ import javax.swing.JPanel
 class PixelLensSettingsConfigurable : Configurable {
     private var evaluateCheckBox: JCheckBox? = null
     private var viewerTypeComboBox: ComboBox<ViewerType>? = null
+    private var verboseModeCheckBox: JCheckBox? = null
 
     override fun createComponent(): JComponent? {
         evaluateCheckBox = JCheckBox("Always use evaluate transmission (slower)")
         viewerTypeComboBox = ComboBox(ViewerType.entries.toTypedArray())
+        verboseModeCheckBox = JCheckBox("Verbose mode (for debugging purposes)")
 
         return FormBuilder.createFormBuilder()
             .addLabeledComponent("Viewer type:", viewerTypeComboBox!!)
             .addComponent(TitledSeparator("Advanced"))
             .setFormLeftIndent(20)
             .addComponent(evaluateCheckBox!!, 1)
+            .addComponent(verboseModeCheckBox!!, 1)
             .addComponentFillVertically(JPanel(), 0)
             .panel
     }
@@ -29,19 +32,22 @@ class PixelLensSettingsConfigurable : Configurable {
     override fun isModified(): Boolean {
         val settings = PixelLensSettingsState.instance
         return settings.alwaysUseEvaluateTransmission != evaluateCheckBox!!.isSelected ||
-                settings.usePopupWindow != (viewerTypeComboBox!!.selectedItem == ViewerType.Popup)
+                settings.usePopupWindow != (viewerTypeComboBox!!.selectedItem == ViewerType.Popup) ||
+                settings.verboseMode != verboseModeCheckBox!!.isSelected
     }
 
     override fun apply() {
         val settings = PixelLensSettingsState.instance
         settings.alwaysUseEvaluateTransmission = evaluateCheckBox!!.isSelected
         settings.usePopupWindow = (viewerTypeComboBox!!.selectedItem == ViewerType.Popup)
+        settings.verboseMode = verboseModeCheckBox!!.isSelected
     }
 
     override fun reset() {
         val settings = PixelLensSettingsState.instance
         evaluateCheckBox!!.isSelected = settings.alwaysUseEvaluateTransmission
         viewerTypeComboBox!!.selectedItem = if (settings.usePopupWindow) ViewerType.Popup else ViewerType.Dialog
+        verboseModeCheckBox!!.isSelected = settings.verboseMode
     }
 
     override fun getDisplayName(): String {

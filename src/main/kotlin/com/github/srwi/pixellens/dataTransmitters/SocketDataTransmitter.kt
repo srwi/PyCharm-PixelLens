@@ -1,6 +1,7 @@
 package com.github.srwi.pixellens.dataTransmitters
 
 import com.github.srwi.pixellens.interop.Python
+import com.github.srwi.pixellens.settings.PixelLensSettingsState
 import com.intellij.openapi.progress.ProgressIndicator
 import com.jetbrains.python.debugger.PyFrameAccessor
 import kotlinx.coroutines.CoroutineScope
@@ -69,6 +70,8 @@ class SocketDataTransmitter : DataTransmitter() {
     }
 
     private fun triggerTransmission(frameAccessor: PyFrameAccessor, variableName: String, port: Int) {
+        val settings = PixelLensSettingsState.instance
+        val onException = if (settings.verboseMode) "raise" else "pass"
         val command = """
             import socket as __tmp_socket
             import struct as __tmp_struct
@@ -82,12 +85,11 @@ class SocketDataTransmitter : DataTransmitter() {
                     __tmp_a_socket.connect(('localhost', $port))
                     __tmp_a_socket.sendall(__tmp_struct.pack('>Q', len(__tmp_bytes)))
                     __tmp_a_socket.sendall(__tmp_bytes)
-            except ConnectionResetError:
-                # Can happen if Kotlin side closes connection before Python socket has fully finished its operations.
-                pass
-                
-            del __tmp_socket, __tmp_struct
-            del __tmp_bytes, __tmp_a_socket
+            except:
+                $onException
+            finally:
+                del __tmp_socket, __tmp_struct
+                del __tmp_bytes, __tmp_a_socket
         """.trimIndent()
         val coroutineScope = CoroutineScope(Dispatchers.Default)
         coroutineScope.launch { Python.executeStatement(frameAccessor, command) }

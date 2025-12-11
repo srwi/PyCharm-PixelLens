@@ -28,6 +28,11 @@ class ViewAsImageAction : AnAction() {
             return
         }
 
+        // It may be possible to view as image without the debugger, but for now we warn the user instead
+        if (catchJupyterVarFrame(value.frameAccessor, project)) {
+            return
+        }
+
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Loading image...", true) {
             override fun run(progressIndicator: ProgressIndicator) {
                 try {
@@ -105,7 +110,8 @@ class ViewAsImageAction : AnAction() {
                 Notification(
                     "notificationGroup.error",
                     "Incompatible python version",
-                    "You are currently using Python 3.13.0, which is affected by a known bug that prevents compatibility with PixelLens. Please update to Python 3.13.1 or later to continue using PixelLens.",
+                    "You are currently using Python 3.13.0, which is affected by a known bug that prevents compatibility with PixelLens. " +
+                            "Please update to Python 3.13.1 or later to continue using PixelLens.",
                     NotificationType.WARNING
                 ),
                 project
@@ -113,5 +119,24 @@ class ViewAsImageAction : AnAction() {
         }
 
         return isCompatible
+    }
+
+    private fun catchJupyterVarFrame(frameAccessor: PyFrameAccessor, project: Project): Boolean {
+        val isJupyter = frameAccessor.javaClass.simpleName == "JupyterVarsFrameAccessor"
+
+        if (isJupyter) {
+            Notifications.Bus.notify(
+                Notification(
+                    "notificationGroup.error",
+                    "Run cell in debugger to view as image",
+                    "To view variables as images, this cell must be executed within the debugger. " +
+                            "Please rerun the cell using the debugger and try viewing the variable as image again.",
+                    NotificationType.WARNING
+                ),
+                project
+            )
+        }
+
+        return isJupyter
     }
 }

@@ -2,15 +2,15 @@
 # libraries
 junit = "4.13.2"
 kotlinxMultik = "0.2.3"
-kotlinxSerializationJson = "1.8.0"
+kotlinxSerializationJson = "1.9.0"
 
 # plugins
 changelog = "2.2.1"
 intelliJPlatform = "2.3.0"
-kotlin = "2.1.0"
+kotlin = "2.2.21"
 kover = "0.9.1"
 qodana = "2025.2.1"
-serialization = "2.1.10"
+serialization = "2.2.21"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
