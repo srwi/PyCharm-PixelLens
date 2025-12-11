@@ -5,7 +5,7 @@ kotlinxMultik = "0.2.3"
 kotlinxSerializationJson = "1.9.0"
 
 # plugins
-changelog = "2.2.1"
+changelog = "2.5.0"
 intelliJPlatform = "2.10.5"
 kotlin = "2.2.21"
 kover = "0.9.4"
