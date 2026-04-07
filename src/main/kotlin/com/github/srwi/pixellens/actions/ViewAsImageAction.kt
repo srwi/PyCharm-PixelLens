@@ -14,7 +14,7 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
-import com.intellij.xdebugger.impl.ui.tree.actions.XDebuggerTreeActionBase
+import com.intellij.xdebugger.impl.ui.tree.actions.XDebuggerTreeBackendOnlyActionBase
 import com.jetbrains.python.debugger.PyDebugValue
 import com.jetbrains.python.debugger.PyFrameAccessor
 import javax.swing.SwingUtilities
@@ -22,7 +22,7 @@ import javax.swing.SwingUtilities
 class ViewAsImageAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
+        val value = XDebuggerTreeBackendOnlyActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
 
         if (!checkPythonCompatibility(value.frameAccessor, project)) {
             return
@@ -83,7 +83,7 @@ class ViewAsImageAction : AnAction() {
     override fun update(e: AnActionEvent) {
         super.update(e)
         try {
-            val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue
+            val value = XDebuggerTreeBackendOnlyActionBase.getSelectedValue(e.dataContext) as PyDebugValue
             val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
             e.presentation.isVisible = imageProvider.typeSupported(value)
             e.presentation.isEnabled = imageProvider.shapeSupported(value)
