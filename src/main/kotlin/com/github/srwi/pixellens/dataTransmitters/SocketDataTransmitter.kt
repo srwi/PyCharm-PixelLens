@@ -57,7 +57,7 @@ class SocketDataTransmitter : DataTransmitter() {
     }
 
     private fun createServerSocket(): AsynchronousServerSocketChannel {
-        return AsynchronousServerSocketChannel.open().bind(InetSocketAddress("localhost", 0))
+        return AsynchronousServerSocketChannel.open().bind(InetSocketAddress("127.0.0.1", 0))
     }
 
     private fun getServerSocketPort(serverSocket: AsynchronousServerSocketChannel): Int {
@@ -82,7 +82,7 @@ class SocketDataTransmitter : DataTransmitter() {
             try:
                 with __tmp_socket.socket(__tmp_socket.AF_INET, __tmp_socket.SOCK_STREAM) as __tmp_a_socket:
                     __tmp_a_socket.settimeout($TIMEOUT_IN_S)
-                    __tmp_a_socket.connect(('localhost', $port))
+                    __tmp_a_socket.connect(('127.0.0.1', $port))
                     __tmp_a_socket.sendall(__tmp_struct.pack('>Q', len(__tmp_bytes)))
                     __tmp_a_socket.sendall(__tmp_bytes)
             except:
