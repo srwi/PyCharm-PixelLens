@@ -1,15 +1,18 @@
 package com.github.srwi.pixellens.dialogs
 
 import com.github.srwi.pixellens.data.Batch
+import com.intellij.ide.DataManager
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.DataProvider
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.util.Disposer
+import com.jetbrains.python.debugger.PyDebugValue
 import org.intellij.images.ui.ImageComponentDecorator
 
-class ImageViewerPopup(val project: Project, batch: Batch) : DataProvider, Disposable {
-    val imageViewer = ImageViewer(batch)
+class ImageViewerPopup(val project: Project, value: PyDebugValue, batch: Batch) : DataProvider, Disposable {
+    val imageViewer = ImageViewer(project, value, batch)
     private val popup: JBPopup
 
     init {
@@ -27,7 +30,9 @@ class ImageViewerPopup(val project: Project, batch: Batch) : DataProvider, Dispo
             .setRequestFocus(true)
             .createPopup()
         popup.setMinimumSize(contentPanel.minimumSize)
-        popup.setDataProvider(this)
+        DataManager.registerDataProvider(contentPanel, this)
+
+        Disposer.register(popup, this)
     }
 
     fun show() {
@@ -43,6 +48,5 @@ class ImageViewerPopup(val project: Project, batch: Batch) : DataProvider, Dispo
 
     override fun dispose() {
         imageViewer.dispose()
-        popup.dispose()
     }
 }

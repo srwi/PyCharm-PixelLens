@@ -94,7 +94,7 @@ class Sidebar {
     }
 
     fun updateChannelList(channels: Int) {
-        val hasRgbChannels = channels == 3 || channels == 4
+        hasRgbChannels = channels == 3 || channels == 4
         channelList.model = DefaultListModel<Any>().apply {
             if (hasRgbChannels) addElement(allChannelsLabel)
             for (i in 0 until channels) addElement(i)

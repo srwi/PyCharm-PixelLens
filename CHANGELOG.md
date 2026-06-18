@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.5.2]
+
+### Changes
+
+- Added support for PyCharm 2026.1
+
 ## [0.5.1]
 
 ### Changes
