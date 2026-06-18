@@ -1,6 +1,7 @@
 package com.github.srwi.pixellens.actions
 
 import com.github.srwi.pixellens.UserSettings
+import com.github.srwi.pixellens.debugger.DebugValueLoader
 import com.github.srwi.pixellens.dialogs.ImageViewerFactory
 import com.github.srwi.pixellens.imageProviders.ImageProviderFactory
 import com.github.srwi.pixellens.interop.Python
@@ -36,16 +37,14 @@ class ViewAsImageAction : AnAction() {
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Loading image...", true) {
             override fun run(progressIndicator: ProgressIndicator) {
                 try {
-                    val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
-                    val expression = getExpression(value)
-                    val batch = imageProvider.getBatchByExpression(value.frameAccessor, progressIndicator, expression)
+                    val batch = DebugValueLoader.loadBatch(value, progressIndicator)
                     batch.data.normalized = UserSettings.normalizeEnabled
                     batch.data.channelsFirst = UserSettings.transposeEnabled
                     batch.data.reversedChannels = UserSettings.reverseChannelsEnabled
                     batch.data.grayscaleColormap = UserSettings.applyColormapEnabled
 
                     SwingUtilities.invokeLater {
-                        ImageViewerFactory.show(project, batch)
+                        ImageViewerFactory.show(project, value, batch)
                     }
                 } catch (e: InterruptedException) {
                     // Operation cancelled by user
@@ -90,13 +89,6 @@ class ViewAsImageAction : AnAction() {
         } catch (_: Exception) {
             e.presentation.isEnabledAndVisible = false
         }
-    }
-
-    private fun getExpression(value: PyDebugValue): String {
-        // Usually we would use 'evaluationExpression' to get the full path of the variable.
-        // Inside the evaluate expression window however the result will be assigned to a temporary
-        // variable and 'name' will be the full evaluation expression instead.
-        return if (value.parent == null) value.name else value.evaluationExpression
     }
 
     private fun checkPythonCompatibility(frameAccessor: PyFrameAccessor, project: Project): Boolean {
