@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.6.0]
+
+### Changes
+
+- Displayed images now update when the debug value changes
+
 ## [0.5.2]
 
 ### Changes
