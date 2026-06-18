@@ -1,6 +1,7 @@
 package com.github.srwi.pixellens.dialogs
 
 import com.github.srwi.pixellens.data.Batch
+import com.intellij.ide.DataManager
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.DataProvider
 import com.intellij.openapi.project.Project
@@ -29,7 +30,7 @@ class ImageViewerPopup(val project: Project, value: PyDebugValue, batch: Batch) 
             .setRequestFocus(true)
             .createPopup()
         popup.setMinimumSize(contentPanel.minimumSize)
-        popup.setDataProvider(this)
+        DataManager.registerDataProvider(contentPanel, this)
 
         Disposer.register(popup, this)
     }

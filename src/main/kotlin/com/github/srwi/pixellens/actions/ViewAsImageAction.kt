@@ -23,7 +23,7 @@ import javax.swing.SwingUtilities
 class ViewAsImageAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val value = XDebuggerTreeBackendOnlyActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
+        val value = XDebuggerTreeBackendOnlyActionBase.getSelectedValue(e.dataContext) as? PyDebugValue ?: return
 
         if (!checkPythonCompatibility(value.frameAccessor, project)) {
             return
@@ -46,9 +46,9 @@ class ViewAsImageAction : AnAction() {
                     SwingUtilities.invokeLater {
                         ImageViewerFactory.show(project, value, batch)
                     }
-                } catch (e: InterruptedException) {
+                } catch (_: InterruptedException) {
                     // Operation cancelled by user
-                } catch (e: OutOfMemoryError) {
+                } catch (_: OutOfMemoryError) {
                     Notifications.Bus.notify(
                         Notification(
                             "notificationGroup.error",

@@ -40,8 +40,8 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.max
 
 open class ImageViewer(
-    private val project: Project,
-    private val debugValue: PyDebugValue,
+    project: Project,
+    debugValue: PyDebugValue,
     initialBatch: Batch
 ) : ImageComponentDecorator, DataProvider, Disposable {
 
