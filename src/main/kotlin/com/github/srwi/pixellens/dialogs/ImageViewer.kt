@@ -3,6 +3,7 @@ package com.github.srwi.pixellens.dialogs
 import com.github.srwi.pixellens.UserSettings
 import com.github.srwi.pixellens.actions.ToggleNormalizeAction
 import com.github.srwi.pixellens.data.Batch
+import com.github.srwi.pixellens.debugger.DebugValueWatcher
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
@@ -10,6 +11,7 @@ import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.DataProvider
 import com.intellij.openapi.actionSystem.impl.ActionButton
 import com.intellij.openapi.editor.colors.EditorColorsManager
+import com.intellij.openapi.project.Project
 import com.intellij.ui.GotItTooltip
 import com.intellij.ui.JBColor
 import com.intellij.ui.PopupHandler
@@ -19,6 +21,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.Magnificator
 import com.intellij.ui.components.TwoSideComponent
 import com.intellij.util.ui.JBUI
+import com.jetbrains.python.debugger.PyDebugValue
 import kotlinx.coroutines.*
 import org.intellij.images.editor.ImageDocument
 import org.intellij.images.editor.ImageZoomModel
@@ -36,7 +39,14 @@ import javax.swing.*
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.max
 
-open class ImageViewer(val batch: Batch) : ImageComponentDecorator, DataProvider, Disposable {
+open class ImageViewer(
+    project: Project,
+    debugValue: PyDebugValue,
+    initialBatch: Batch
+) : ImageComponentDecorator, DataProvider, Disposable {
+
+    var batch: Batch = initialBatch
+        private set
 
     var normalizeEnabled: Boolean = batch.data.normalized
         set(value) {
@@ -90,9 +100,12 @@ open class ImageViewer(val batch: Batch) : ImageComponentDecorator, DataProvider
 
     private var selectedBatchIndex: Int = 0
 
+    private var disposed = false
     private var didInitialUpdate = false
+    private var suppressSidebarEvents = false
     private var updateJob: Job? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
+    private val watcher = DebugValueWatcher(project, debugValue) { newBatch -> onValueRefreshed(newBatch) }
 
     private val editorMouseWheelAdapter = EditorMouseWheelAdapter()
     private val editorResizeAdapter = EditorResizeAdapter()
@@ -102,6 +115,8 @@ open class ImageViewer(val batch: Batch) : ImageComponentDecorator, DataProvider
 
     private var scrollPane = JBScrollPane()
     private val coordinateValueLabel = JLabel()
+    private val shapeLabel = JLabel(batch.shape.joinToString("x"))
+    private val dtypeLabel = JLabel(batch.dtype)
     private val sidebar = Sidebar()
     private val sidebarPanel = JPanel(BorderLayout())
     private val imageComponent = ImageComponent()
@@ -191,12 +206,54 @@ open class ImageViewer(val batch: Batch) : ImageComponentDecorator, DataProvider
     }
 
     fun createContentPanel(): JComponent {
-        return JPanel().apply {
+        val panel = JPanel().apply {
             layout = BorderLayout()
             add(createNorthPanel(), BorderLayout.NORTH)
             add(createCenterPanel(), BorderLayout.CENTER)
             add(createSouthPanel(), BorderLayout.SOUTH)
         }
+        watcher.start()
+        return panel
+    }
+
+    private fun onValueRefreshed(newBatch: Batch) {
+        if (disposed) return
+
+        newBatch.data.normalized = normalizeEnabled
+        newBatch.data.channelsFirst = transposeEnabled
+        newBatch.data.reversedChannels = reverseChannelsEnabled
+        newBatch.data.grayscaleColormap = applyColormapEnabled
+
+        batch = newBatch
+        shapeLabel.text = newBatch.shape.joinToString("x")
+        dtypeLabel.text = newBatch.dtype
+
+        selectedBatchIndex = selectedBatchIndex.coerceIn(0, newBatch.data.batchSize - 1)
+        selectedChannelIndex = when {
+            !newBatch.data.supportsMultiChannelDisplay() ->
+                (selectedChannelIndex ?: 0).coerceIn(0, newBatch.data.channels - 1)
+            selectedChannelIndex != null ->
+                selectedChannelIndex!!.coerceIn(0, newBatch.data.channels - 1)
+            else -> null
+        }
+
+        suppressSidebarEvents = true
+        try {
+            sidebar.updateChannelList(newBatch.data.channels)
+            sidebar.updateBatchList(newBatch.data.batchSize)
+            sidebar.setSelectedBatchIndex(selectedBatchIndex)
+            sidebar.setSelectedChannelIndex(selectedChannelIndex)
+        } finally {
+            suppressSidebarEvents = false
+        }
+
+        if (activeSidebar == SidebarType.BatchSidebar && newBatch.data.batchSize <= 1) {
+            activeSidebar = null
+        } else if (activeSidebar == SidebarType.ChannelSidebar && newBatch.data.channels <= 1) {
+            activeSidebar = null
+        }
+
+        updateImage()
     }
 
     private fun createCenterPanel(): JComponent {
@@ -229,12 +286,8 @@ open class ImageViewer(val batch: Batch) : ImageComponentDecorator, DataProvider
     }
 
     private fun createSouthPanel(): JComponent {
-        val shapeLabel = JLabel(batch.shape.joinToString("x")).apply {
-            border = JBUI.Borders.empty(5)
-        }
-        val dtypeLabel = JLabel(batch.dtype).apply {
-            border = JBUI.Borders.empty(5)
-        }
+        shapeLabel.border = JBUI.Borders.empty(5)
+        dtypeLabel.border = JBUI.Borders.empty(5)
         val rightPanel = JPanel(BorderLayout()).apply {
             add(shapeLabel, BorderLayout.WEST)
             add(dtypeLabel, BorderLayout.EAST)
@@ -260,10 +313,12 @@ open class ImageViewer(val batch: Batch) : ImageComponentDecorator, DataProvider
         sidebar.setSelectedBatchIndex(selectedBatchIndex)
         sidebar.setSelectedChannelIndex(selectedChannelIndex)
         sidebar.onBatchIndexChanged { index ->
+            if (suppressSidebarEvents) return@onBatchIndexChanged
             selectedBatchIndex = index
             updateImage()
         }
         sidebar.onChannelIndexChanged { index ->
+            if (suppressSidebarEvents) return@onChannelIndexChanged
             selectedChannelIndex = index
             updateImage()
         }
@@ -429,6 +484,8 @@ open class ImageViewer(val batch: Batch) : ImageComponentDecorator, DataProvider
     }
 
     override fun dispose() {
+        disposed = true
+        watcher.dispose()
         updateJob?.cancel()
         imageComponent.removeMouseMotionListener(mouseMotionAdapter)
         imageComponent.removeMouseListener(mouseExitAdapter)

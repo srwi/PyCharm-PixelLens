@@ -5,12 +5,13 @@ import com.intellij.openapi.actionSystem.DataProvider
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.util.ui.JBUI
+import com.jetbrains.python.debugger.PyDebugValue
 import org.intellij.images.ui.ImageComponentDecorator
 import javax.swing.JComponent
 import javax.swing.border.Border
 
-class ImageViewerDialog(project: Project, batch: Batch) : DialogWrapper(project), DataProvider {
-    val imageViewer = ImageViewer(batch)
+class ImageViewerDialog(project: Project, value: PyDebugValue, batch: Batch) : DialogWrapper(project), DataProvider {
+    val imageViewer = ImageViewer(project, value, batch)
 
     init {
         title = batch.expression

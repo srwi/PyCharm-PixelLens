@@ -1,6 +1,7 @@
 package com.github.srwi.pixellens.actions
 
 import com.github.srwi.pixellens.UserSettings
+import com.github.srwi.pixellens.debugger.DebugValueLoader
 import com.github.srwi.pixellens.dialogs.ImageViewerFactory
 import com.github.srwi.pixellens.imageProviders.ImageProviderFactory
 import com.github.srwi.pixellens.interop.Python
@@ -14,7 +15,7 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
-import com.intellij.xdebugger.impl.ui.tree.actions.XDebuggerTreeActionBase
+import com.intellij.xdebugger.impl.ui.tree.actions.XDebuggerTreeBackendOnlyActionBase
 import com.jetbrains.python.debugger.PyDebugValue
 import com.jetbrains.python.debugger.PyFrameAccessor
 import javax.swing.SwingUtilities
@@ -22,7 +23,7 @@ import javax.swing.SwingUtilities
 class ViewAsImageAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue? ?: return
+        val value = XDebuggerTreeBackendOnlyActionBase.getSelectedValue(e.dataContext) as? PyDebugValue ?: return
 
         if (!checkPythonCompatibility(value.frameAccessor, project)) {
             return
@@ -36,20 +37,18 @@ class ViewAsImageAction : AnAction() {
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Loading image...", true) {
             override fun run(progressIndicator: ProgressIndicator) {
                 try {
-                    val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
-                    val expression = getExpression(value)
-                    val batch = imageProvider.getBatchByExpression(value.frameAccessor, progressIndicator, expression)
+                    val batch = DebugValueLoader.loadBatch(value, progressIndicator)
                     batch.data.normalized = UserSettings.normalizeEnabled
                     batch.data.channelsFirst = UserSettings.transposeEnabled
                     batch.data.reversedChannels = UserSettings.reverseChannelsEnabled
                     batch.data.grayscaleColormap = UserSettings.applyColormapEnabled
 
                     SwingUtilities.invokeLater {
-                        ImageViewerFactory.show(project, batch)
+                        ImageViewerFactory.show(project, value, batch)
                     }
-                } catch (e: InterruptedException) {
+                } catch (_: InterruptedException) {
                     // Operation cancelled by user
-                } catch (e: OutOfMemoryError) {
+                } catch (_: OutOfMemoryError) {
                     Notifications.Bus.notify(
                         Notification(
                             "notificationGroup.error",
@@ -83,20 +82,13 @@ class ViewAsImageAction : AnAction() {
     override fun update(e: AnActionEvent) {
         super.update(e)
         try {
-            val value = XDebuggerTreeActionBase.getSelectedValue(e.dataContext) as PyDebugValue
+            val value = XDebuggerTreeBackendOnlyActionBase.getSelectedValue(e.dataContext) as PyDebugValue
             val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
             e.presentation.isVisible = imageProvider.typeSupported(value)
             e.presentation.isEnabled = imageProvider.shapeSupported(value)
         } catch (_: Exception) {
             e.presentation.isEnabledAndVisible = false
         }
-    }
-
-    private fun getExpression(value: PyDebugValue): String {
-        // Usually we would use 'evaluationExpression' to get the full path of the variable.
-        // Inside the evaluate expression window however the result will be assigned to a temporary
-        // variable and 'name' will be the full evaluation expression instead.
-        return if (value.parent == null) value.name else value.evaluationExpression
     }
 
     private fun checkPythonCompatibility(frameAccessor: PyFrameAccessor, project: Project): Boolean {
