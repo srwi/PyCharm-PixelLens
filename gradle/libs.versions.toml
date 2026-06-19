@@ -1,7 +1,7 @@
 [versions]
 # libraries
 junit = "4.13.2"
-kotlinxMultik = "0.2.3"
+kotlinxMultik = "0.3.1"
 kotlinxSerializationJson = "1.10.0"
 
 # plugins
