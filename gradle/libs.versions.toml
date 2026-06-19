@@ -8,7 +8,7 @@ kotlinxSerializationJson = "1.10.0"
 changelog = "2.5.0"
 intelliJPlatform = "2.11.0"
 kotlin = "2.3.0"
-kover = "0.9.4"
+kover = "0.9.8"
 qodana = "2025.3.1"
 serialization = "2.3.0"
 
