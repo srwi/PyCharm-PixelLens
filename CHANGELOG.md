@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [0.7.0]
+
+### Changes
+
+- Added support for the debugpy debugger backend
+- Added support for PyCharm 2026.2
+- Improved error reporting when data transmission fails
+
 ## [0.6.0]
 
 ### Changes
