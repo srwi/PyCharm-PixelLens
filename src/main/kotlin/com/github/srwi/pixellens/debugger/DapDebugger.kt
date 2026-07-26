@@ -27,11 +27,16 @@ object DapDebugger {
         val expression = call<String>(value, "getEvaluationExpression") ?: return null
 
         val type = call<String>(value, "getType")
+
+        // Numeric containers such as ndarray or Tensor are the ones the platform can expand
+        val isContainer = type != null && PyDebugValue.getEvaluatorPostfixes().containsKey(type)
+
         return PyDebugValue(
             expression,
             type,
             getTypeQualifier(call(value, "getQualifiedType"), type),
             null,
+            isContainer,
             call<String>(value, "getShape"),
             call<String>(value, "getDtype"),
             false,
