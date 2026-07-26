@@ -1,6 +1,7 @@
 package com.github.srwi.pixellens.actions
 
 import com.github.srwi.pixellens.UserSettings
+import com.github.srwi.pixellens.data.DataTooLargeException
 import com.github.srwi.pixellens.debugger.DapDebugger
 import com.github.srwi.pixellens.debugger.DebugValueLoader
 import com.github.srwi.pixellens.dialogs.ImageViewerFactory
@@ -50,6 +51,16 @@ class ViewAsImageAction : AnAction() {
                     }
                 } catch (_: InterruptedException) {
                     // Operation cancelled by user
+                } catch (e: DataTooLargeException) {
+                    Notifications.Bus.notify(
+                        Notification(
+                            "notificationGroup.error",
+                            "Data too large",
+                            e.message,
+                            NotificationType.ERROR
+                        ),
+                        project
+                    )
                 } catch (_: OutOfMemoryError) {
                     Notifications.Bus.notify(
                         Notification(

@@ -23,6 +23,10 @@ class PytorchImageProvider : ImageProvider() {
         """.trimIndent()
     }
 
+    override fun getSizeExpression(variableExpression: String): String {
+        return "(lambda v: v.numel() * v.element_size())($variableExpression)"
+    }
+
     override fun typeSupported(value: PyDebugValue): Boolean {
         return value.type == "Tensor" || value.type == "Parameter"
     }

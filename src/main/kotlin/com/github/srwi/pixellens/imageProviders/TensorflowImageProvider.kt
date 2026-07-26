@@ -22,6 +22,11 @@ class TensorflowImageProvider : ImageProvider() {
         """.trimIndent()
     }
 
+    override fun getSizeExpression(variableExpression: String): String {
+        // Going through the shape avoids materializing the tensor as a numpy array
+        return "(lambda v: v.shape.num_elements() * v.dtype.size)($variableExpression)"
+    }
+
     override fun typeSupported(value: PyDebugValue): Boolean {
         return value.type == "EagerTensor" || value.type == "ResourceVariable"
     }

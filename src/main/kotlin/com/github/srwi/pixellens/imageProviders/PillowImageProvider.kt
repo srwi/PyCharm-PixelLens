@@ -20,6 +20,11 @@ class PillowImageProvider : ImageProvider() {
         """.trimIndent()
     }
 
+    override fun getSizeExpression(variableExpression: String): String {
+        // The supported modes store one byte per band, except for 'I' and 'F' which store four
+        return "(lambda v: v.size[0] * v.size[1] * len(v.getbands()) * (4 if v.mode in ('I', 'F') else 1))($variableExpression)"
+    }
+
     override fun shapeSupported(value: PyDebugValue): Boolean {
         return true
     }

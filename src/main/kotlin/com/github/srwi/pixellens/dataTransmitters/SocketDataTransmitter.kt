@@ -1,9 +1,11 @@
 package com.github.srwi.pixellens.dataTransmitters
 
+import com.github.srwi.pixellens.data.DataTooLargeException
 import com.github.srwi.pixellens.interop.Python
 import com.github.srwi.pixellens.settings.PixelLensSettingsState
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.util.text.StringUtil
 import com.jetbrains.python.debugger.PyFrameAccessor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +23,8 @@ import java.util.concurrent.atomic.AtomicLong
 class SocketDataTransmitter : DataTransmitter() {
     companion object {
         const val BUFFER_SIZE: Int = 8192
+        // The received data is collected into a single byte array
+        const val MAX_RECEIVABLE_SIZE_IN_BYTES: Long = Int.MAX_VALUE - 8L
         const val TIMEOUT_IN_S: Long = 10
         const val ERROR_READ_TIMEOUT_IN_S: Long = 5
         const val ERROR_VARIABLE_BASE_NAME = "__srwi_pixellens_transmission_error"
@@ -196,12 +200,26 @@ class SocketDataTransmitter : DataTransmitter() {
 
     private fun readTotalDataSize(clientChannel: AsynchronousSocketChannel): Long {
         val sizeBuffer = ByteBuffer.allocate(java.lang.Long.BYTES)
-        clientChannel.read(sizeBuffer).get()
+        while (sizeBuffer.hasRemaining()) {
+            // An unchecked read would leave the buffer zeroed and report a payload of no bytes,
+            // turning a failed transmission into an empty and seemingly valid result
+            if (clientChannel.read(sizeBuffer).get() == -1) {
+                throw TransmissionIncompleteException("The connection was closed before the payload size was received.")
+            }
+        }
         sizeBuffer.flip()
         return sizeBuffer.long
     }
 
     private fun receiveData(clientChannel: AsynchronousSocketChannel, totalSize: Long, progressIndicator: ProgressIndicator): ByteArray {
+        if (totalSize > MAX_RECEIVABLE_SIZE_IN_BYTES) {
+            throw DataTooLargeException(
+                "The data to be transferred is ${StringUtil.formatFileSize(totalSize)}, which exceeds the " +
+                        "${StringUtil.formatFileSize(MAX_RECEIVABLE_SIZE_IN_BYTES)} that can be received at once. " +
+                        "Please view a smaller slice of the data instead."
+            )
+        }
+
         val buffer = ByteBuffer.allocate(BUFFER_SIZE)
         val dataStream = ByteArrayOutputStream()
         var totalBytesRead = 0L

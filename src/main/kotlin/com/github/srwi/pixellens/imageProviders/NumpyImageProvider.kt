@@ -22,6 +22,10 @@ class NumpyImageProvider : ImageProvider() {
         """.trimIndent()
     }
 
+    override fun getSizeExpression(variableExpression: String): String {
+        return "(lambda v: v.nbytes)($variableExpression)"
+    }
+
     override fun typeSupported(value: PyDebugValue): Boolean {
         return value.type == "ndarray"
     }

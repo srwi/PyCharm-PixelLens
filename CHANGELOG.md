@@ -11,6 +11,7 @@
 - Added support for the debugpy debugger backend
 - Added support for PyCharm 2026.2
 - Improved error reporting when data transmission fails
+- Improved error message when viewed data is too large to fit into memory
 
 ## [0.6.0]
 

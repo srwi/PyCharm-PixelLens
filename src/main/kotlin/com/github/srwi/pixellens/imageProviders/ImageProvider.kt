@@ -3,9 +3,11 @@ package com.github.srwi.pixellens.imageProviders
 import com.github.srwi.pixellens.data.Batch
 import com.github.srwi.pixellens.data.BatchData
 import com.github.srwi.pixellens.data.BatchDataPayload
+import com.github.srwi.pixellens.data.DataTooLargeException
 import com.github.srwi.pixellens.dataTransmitters.DataTransmitterFactory
 import com.github.srwi.pixellens.interop.Python
 import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.util.text.StringUtil
 import com.jetbrains.python.debugger.PyDebugValue
 import com.jetbrains.python.debugger.PyFrameAccessor
 import kotlinx.serialization.json.Json
@@ -25,11 +27,38 @@ abstract class ImageProvider {
     companion object {
         const val PAYLOAD_VARIABLE_NAME = "__srwi_pixellens_data"
         const val FUNCTION_NAME = "__srwi_pixellens_image_provider"
+
+        // The data is transferred as a single base64 encoded string that has to fit into one
+        // Java String. Base64 inflates the data by 4/3, so anything beyond this limit can never
+        // be received, no matter how much memory is available.
+        const val MAX_SUPPORTED_SIZE_IN_BYTES = 1_500_000_000L
     }
 
     fun getBatchByExpression(frameAccessor: PyFrameAccessor, progressIndicator: ProgressIndicator, expression: String): Batch {
+        checkSizeSupported(frameAccessor, expression)
         val imageAndMetadata = getBatchData(progressIndicator, frameAccessor, expression)
         return processImageData(progressIndicator, expression, imageAndMetadata)
+    }
+
+    private fun checkSizeSupported(frameAccessor: PyFrameAccessor, expression: String) {
+        val sizeInBytes = getSizeInBytes(frameAccessor, expression) ?: return
+        if (sizeInBytes <= MAX_SUPPORTED_SIZE_IN_BYTES) return
+
+        throw DataTooLargeException(
+            "'$expression' holds ${StringUtil.formatFileSize(sizeInBytes)} of data, but PixelLens can " +
+                    "only load ${StringUtil.formatFileSize(MAX_SUPPORTED_SIZE_IN_BYTES)} at once. " +
+                    "Please view a smaller slice of the data instead."
+        )
+    }
+
+    private fun getSizeInBytes(frameAccessor: PyFrameAccessor, expression: String): Long? {
+        return try {
+            Python.evaluateExpression(frameAccessor, getSizeExpression(expression)).value?.toLongOrNull()
+        } catch (_: Exception) {
+            // Without a known size the transfer is attempted anyway; it then either succeeds
+            // or fails later on with a more specific error
+            null
+        }
     }
 
     private fun getBatchData(progressIndicator: ProgressIndicator, frameAccessor: PyFrameAccessor, expression: String): BatchDataPayload {
@@ -304,4 +333,6 @@ abstract class ImageProvider {
     abstract fun typeSupported(value: PyDebugValue): Boolean
 
     abstract fun getDataPreparationFunction(functionName: String): String
+
+    abstract fun getSizeExpression(variableExpression: String): String
 }
