@@ -1,6 +1,7 @@
 package com.github.srwi.pixellens.actions
 
 import com.github.srwi.pixellens.UserSettings
+import com.github.srwi.pixellens.debugger.DapDebugger
 import com.github.srwi.pixellens.debugger.DebugValueLoader
 import com.github.srwi.pixellens.dialogs.ImageViewerFactory
 import com.github.srwi.pixellens.imageProviders.ImageProviderFactory
@@ -11,6 +12,7 @@ import com.intellij.notification.Notifications
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -23,7 +25,7 @@ import javax.swing.SwingUtilities
 class ViewAsImageAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val value = XDebuggerTreeBackendOnlyActionBase.getSelectedValue(e.dataContext) as? PyDebugValue ?: return
+        val value = getSelectedValue(e.dataContext) ?: return
 
         if (!checkPythonCompatibility(value.frameAccessor, project)) {
             return
@@ -82,13 +84,19 @@ class ViewAsImageAction : AnAction() {
     override fun update(e: AnActionEvent) {
         super.update(e)
         try {
-            val value = XDebuggerTreeBackendOnlyActionBase.getSelectedValue(e.dataContext) as PyDebugValue
+            val value = getSelectedValue(e.dataContext) ?: throw IllegalArgumentException("No Python value selected")
             val imageProvider = ImageProviderFactory.getImageProvider(value.typeQualifier as String)
             e.presentation.isVisible = imageProvider.typeSupported(value)
             e.presentation.isEnabled = imageProvider.shapeSupported(value)
         } catch (_: Exception) {
             e.presentation.isEnabledAndVisible = false
         }
+    }
+
+    private fun getSelectedValue(dataContext: DataContext): PyDebugValue? {
+        val value = XDebuggerTreeBackendOnlyActionBase.getSelectedValue(dataContext)
+        // The debugpy backend puts its own value type into the tree instead of a PyDebugValue
+        return value as? PyDebugValue ?: DapDebugger.asPyDebugValue(value)
     }
 
     private fun checkPythonCompatibility(frameAccessor: PyFrameAccessor, project: Project): Boolean {

@@ -1,10 +1,13 @@
 package com.github.srwi.pixellens.dataTransmitters
 
+import com.github.srwi.pixellens.debugger.DapDebugger
 import com.github.srwi.pixellens.settings.PixelLensSettingsState
 import com.intellij.openapi.projectRoots.Sdk
+import com.intellij.xdebugger.XDebugProcess
 import com.jetbrains.python.console.PydevConsoleCommunication
 import com.jetbrains.python.debugger.PyDebugProcess
 import com.jetbrains.python.debugger.PyFrameAccessor
+import com.jetbrains.python.run.AbstractPythonRunConfiguration
 import com.jetbrains.python.run.PyDebugProcessHandler
 import com.jetbrains.python.sdk.PythonSdkUtil
 
@@ -30,6 +33,10 @@ class DataTransmitterFactory {
             } else if (frameAccessor is PyDebugProcess) {
                 // PyRemoteProcessHandler is marked Internal, therefore we check for PyDebugProcessHandler instead
                 return frameAccessor.processHandler !is PyDebugProcessHandler
+            } else if (DapDebugger.isDapFrameAccessor(frameAccessor)) {
+                val runProfile = (frameAccessor as? XDebugProcess)?.session?.runProfile
+                val sdk = (runProfile as? AbstractPythonRunConfiguration<*>)?.sdk ?: return true
+                return PythonSdkUtil.isRemote(sdk)
             }
 
             // When in doubt, remote is the safer assumption

@@ -1,6 +1,7 @@
 package com.github.srwi.pixellens.dataTransmitters
 
 import com.intellij.openapi.application.ApplicationInfo
+import com.github.srwi.pixellens.debugger.DapDebugger
 import com.github.srwi.pixellens.interop.Python
 import com.intellij.openapi.progress.ProgressIndicator
 import com.jetbrains.python.debugger.PyFrameAccessor
@@ -10,7 +11,7 @@ import kotlin.math.min
 
 class EvaluateDataTransmitter : DataTransmitter() {
     override fun getJsonData(frameAccessor: PyFrameAccessor, progressIndicator: ProgressIndicator, variableName: String): String {
-        val chunkSize = getChunkSize()
+        val chunkSize = getChunkSize(frameAccessor)
 
         progressIndicator.text = "Receiving data..."
         progressIndicator.fraction = 0.0
@@ -36,8 +37,14 @@ class EvaluateDataTransmitter : DataTransmitter() {
         return base64Data.toString()
     }
 
-    private fun getChunkSize(): Int
+    private fun getChunkSize(frameAccessor: PyFrameAccessor): Int
     {
+        // debugpy renders evaluate results with SafeRepr, which truncates strings longer
+        // than 2^16 characters; chunks must stay below that limit to arrive intact
+        if (DapDebugger.isDapFrameAccessor(frameAccessor)) {
+            return 64_000
+        }
+
         // Dirty fix for https://youtrack.jetbrains.com/issue/PY-75568/Large-strings-truncated-when-displayed-in-debug-output-or-evaluate-windows-again
         // TODO: Once the bug is fixed, this workaround should be limited to the affected versions
         val appInfo = ApplicationInfo.getInstance()
@@ -51,7 +58,7 @@ class EvaluateDataTransmitter : DataTransmitter() {
     }
 
     private fun getChunk(frameAccessor: PyFrameAccessor, variableName: String, start: Int, end: Int): String {
-        return Python.evaluateExpression(frameAccessor, "$variableName[$start:$end]").value
+        return Python.evaluateStringExpression(frameAccessor, "$variableName[$start:$end]")
             ?: throw IOException("Failed to transmit chunk")
     }
 
